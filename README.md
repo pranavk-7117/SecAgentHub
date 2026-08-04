@@ -30,6 +30,45 @@ DATABASE_URL=postgresql://secagent:secagent@postgres:5432/secagent
 
 If `DATABASE_URL` is omitted, the backend falls back to in-memory storage for quick isolated tests.
 
+## Deploy
+
+Recommended production split:
+
+- Backend: Render web service from `render.yaml`.
+- Frontend: Vercel project with root directory `frontend`.
+
+Backend environment variables on Render:
+
+```text
+ALGORAND_NETWORK=testnet
+ALLOW_MOCK_PAYMENTS=false
+ALGOD_NODE_URL=https://testnet-api.algonode.cloud
+ALGOD_TOKEN=
+INDEXER_URL=https://testnet-idx.algonode.cloud
+USDC_ASA_ID=<testnet USDC ASA id>
+FACILITATOR_ADDRESS=<Algorand Testnet receiving address>
+GROQ_API_KEY=<Groq API key>
+DATABASE_URL=<Postgres/Supabase connection string, optional for demo>
+INTERNAL_API_SECRET=<same random secret used by Vercel>
+```
+
+Frontend environment variables on Vercel:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=<Render backend URL>
+BACKEND_API_BASE=<Render backend URL>
+INTERNAL_API_SECRET=<same random secret used by Render>
+X402_FACILITATOR_URL=https://facilitator.goplausible.xyz
+X402_NETWORK=algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=
+NEXT_PUBLIC_ALGORAND_NETWORK=testnet
+NEXT_PUBLIC_ALGOD_NODE_URL=https://testnet-api.algonode.cloud
+NEXT_PUBLIC_ALGOD_TOKEN=
+NEXT_PUBLIC_USDC_ASA_ID=<testnet USDC ASA id>
+NEXT_PUBLIC_FACILITATOR_ADDRESS=<Algorand Testnet receiving address>
+```
+
+Keep `backend/.env` and `frontend/.env.local` private. They are ignored by Git.
+
 ## Environment
 
 Copy the examples before configuring real services:
