@@ -1,0 +1,52 @@
+@import "@xyflow/react/dist/style.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 24% 97%;
+  --foreground: 222 34% 9%;
+  --muted: 214 22% 92%;
+  --accent: 174 68% 35%;
+  --border: 214 18% 84%;
+  --destructive: 0 72% 50%;
+}
+
+body {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(15, 118, 110, 0.11), transparent 30%),
+    linear-gradient(180deg, #f8fbfc 0%, #eef4f5 54%, #f7faf9 100%);
+  color: hsl(var(--foreground));
+  min-height: 100vh;
+}
+
+.react-flow__node {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.react-flow__attribution {
+  display: none;
+}
+
+.react-flow__controls {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+}
+
+.react-flow__controls-button {
+  border-color: hsl(var(--border));
+}
+
+* {
+  scrollbar-color: #94a3b8 transparent;
+}
+
+::selection {
+  background: rgba(20, 184, 166, 0.22);
+}
