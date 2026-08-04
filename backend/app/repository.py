@@ -81,12 +81,55 @@ class InMemoryRepository:
 class PostgresRepository:
     def __init__(self, database_url: str) -> None:
         self.database_url = database_url
+        self._init_db()
 
     def _connect(self):
         import psycopg
         from psycopg.rows import dict_row
 
         return psycopg.connect(self.database_url, row_factory=dict_row)
+
+    def _init_db(self) -> None:
+        sql = """
+        CREATE TABLE IF NOT EXISTS users (
+          id UUID PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS scans (
+          id UUID PRIMARY KEY,
+          user_id UUID REFERENCES users(id),
+          filename TEXT NOT NULL,
+          raw_hcl TEXT NOT NULL,
+          parsed_hcl_json JSONB DEFAULT '{}'::jsonb,
+          raw_checkov_json JSONB,
+          graph_json JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS agent_executions (
+          id UUID PRIMARY KEY,
+          scan_id UUID REFERENCES scans(id),
+          agent_id TEXT NOT NULL,
+          tx_hash TEXT NOT NULL UNIQUE,
+          amount_paid NUMERIC NOT NULL,
+          pay_to_address TEXT NOT NULL,
+          challenge_nonce TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          output_data JSONB,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS reports (
+          id UUID PRIMARY KEY,
+          scan_id UUID REFERENCES scans(id),
+          pdf_storage_path TEXT NOT NULL,
+          generated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_executions_scan_id ON agent_executions(scan_id);
+        """
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+
 
     def create_scan(self, scan: ScanRecord) -> ScanRecord:
         with self._connect() as conn:
