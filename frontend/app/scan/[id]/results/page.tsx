@@ -6,6 +6,7 @@ import { RiskGraph } from "@/components/RiskGraph";
 import { Shell } from "@/components/Shell";
 import { API_BASE, askScan, getScan } from "@/lib/api";
 import { Badge, Button, Card, Input, Table } from "@/components/ui";
+import { Markdown } from "@/components/Markdown";
 
 export default function ResultsPage({ params }: { params: { id: string } }) {
   const [scan, setScan] = useState<any>();
@@ -129,7 +130,13 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             <Input value={question} placeholder="Ask about this scan" onChange={(event) => setQuestion(event.target.value)} />
             <Button onClick={sendQuestion}>Ask</Button>
           </div>
-          {answer ? <pre className="mt-4 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-4 text-sm leading-6 text-slate-100 shadow-inner">{answer}</pre> : <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Ask for impact, exploitability, or a Terraform fix for any finding.</div>}
+          {answer ? (
+            <div className="mt-4 max-h-96 overflow-auto rounded-xl border border-slate-200 bg-slate-50/50 p-5 shadow-inner leading-relaxed animate-fadeIn">
+              <Markdown content={answer} />
+            </div>
+          ) : (
+            <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Ask for impact, exploitability, or a Terraform fix for any finding.</div>
+          )}
         </Card>
       </section>
       <Card className="mt-6 overflow-hidden p-0">
@@ -152,14 +159,23 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         <Table>
           <thead className="text-left text-slate-500"><tr><th className="py-2">Agent</th><th>Status</th><th>Amount</th><th>Transaction</th></tr></thead>
           <tbody>
-            {(scan.agent_executions || []).map((row: any) => (
-              <tr key={row.id} className="border-t border-border">
-                <td className="py-3 font-medium">{agentLabel(row.agent_id)}</td>
-                <td><Badge className="bg-emerald-50 text-emerald-700">{row.status}</Badge></td>
-                <td>{row.amount_paid}</td>
-                <td><a className="text-teal-700" href={`https://testnet.explorer.perawallet.app/tx/${row.tx_hash}`} target="_blank">{row.tx_hash}</a></td>
-              </tr>
-            ))}
+            {(scan.agent_executions || []).map((row: any) => {
+              const receipt = row.output_data?.x402_receipt || {};
+              const verifiedBy = receipt.verified_by || (row.tx_hash?.startsWith("mock-") ? "Mock Fallback" : "FastAPI Backend (Direct Indexer)");
+              return (
+                <tr key={row.id} className="border-t border-border">
+                  <td className="py-3 font-medium">{agentLabel(row.agent_id)}</td>
+                  <td><Badge className="bg-emerald-50 text-emerald-700">{row.status}</Badge></td>
+                  <td>{row.amount_paid}</td>
+                  <td className="py-3">
+                    <div className="flex flex-col gap-1">
+                      <a className="text-teal-700 font-mono text-xs break-all" href={`https://testnet.explorer.perawallet.app/tx/${row.tx_hash}`} target="_blank">{row.tx_hash}</a>
+                      <span className="text-[11px] text-slate-500 font-medium">Verified by: <span className="text-teal-700 font-semibold">{verifiedBy}</span></span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
       </Card>
@@ -263,11 +279,11 @@ function AttackPathOutput({ data }: { data: any }) {
 
 function RemediationOutput({ data }: { data: any }) {
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-slate-600">{data.explanation}</p>
-      <pre className="max-h-56 overflow-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">{data.corrected_hcl}</pre>
-      <ol className="space-y-1 text-sm text-slate-600">
-        {(data.steps || []).map((step: string, index: number) => <li key={step}>{index + 1}. {step}</li>)}
+    <div className="space-y-4">
+      <Markdown content={data.explanation} />
+      <pre className="max-h-56 overflow-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100 font-mono">{data.corrected_hcl}</pre>
+      <ol className="space-y-1.5 text-sm text-slate-600 list-decimal pl-5">
+        {(data.steps || []).map((step: string) => <li key={step}>{step}</li>)}
       </ol>
     </div>
   );

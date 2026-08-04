@@ -20,7 +20,7 @@ const AGENT_PRICES_MICRO_USDC: Record<string, number> = {
 const X402_NETWORK = (process.env.X402_NETWORK || "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=") as Network;
 const FACILITATOR_URL = process.env.X402_FACILITATOR_URL || "https://facilitator.goplausible.xyz";
 const PAY_TO = process.env.NEXT_PUBLIC_FACILITATOR_ADDRESS || "";
-const API_BASE = process.env.BACKEND_API_BASE || "http://127.0.0.1:8012";
+const API_BASE = process.env.BACKEND_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || "";
 const ALGOD_URL = process.env.NEXT_PUBLIC_ALGOD_NODE_URL || "https://testnet-api.algonode.cloud";
 const ALGOD_TOKEN = process.env.NEXT_PUBLIC_ALGOD_TOKEN || "";
@@ -82,8 +82,33 @@ class ResilientGoPlausibleFacilitator {
     return this.client.verify(paymentPayload, paymentRequirements).catch(() => this.localVerify(paymentPayload, paymentRequirements));
   }
 
-  settle(paymentPayload: PaymentPayload, paymentRequirements: PaymentRequirements): Promise<SettleResponse> {
-    return this.client.settle(paymentPayload, paymentRequirements).catch(() => this.localSettle(paymentPayload, paymentRequirements));
+  async settle(paymentPayload: PaymentPayload, paymentRequirements: PaymentRequirements): Promise<SettleResponse> {
+    try {
+      const res = await this.client.settle(paymentPayload, paymentRequirements);
+      return {
+        ...res,
+        // @ts-ignore
+        verified_by: "GoPlausible Facilitator"
+      };
+    } catch (error) {
+      const cause = error && (error as any).cause ? ((error as any).cause.stack || (error as any).cause.message || JSON.stringify((error as any).cause)) : "none";
+      logToFile("Facilitator settle failed: " + (error instanceof Error ? error.stack : String(error)) + " | Cause: " + cause);
+      try {
+        const res = await this.localSettle(paymentPayload, paymentRequirements);
+        if (!res.success) {
+          logToFile("localSettle success was false: " + JSON.stringify(res));
+        }
+        return {
+          ...res,
+          // @ts-ignore
+          verified_by: "Local Backup Verifier"
+        };
+      } catch (localError) {
+        const localCause = localError && (localError as any).cause ? ((localError as any).cause.stack || (localError as any).cause.message || JSON.stringify((localError as any).cause)) : "none";
+        logToFile("localSettle exception: " + (localError instanceof Error ? localError.stack : String(localError)) + " | Cause: " + localCause);
+        throw localError;
+      }
+    }
   }
 
   async getSupported(): Promise<SupportedResponse> {
@@ -163,71 +188,95 @@ class ResilientGoPlausibleFacilitator {
   }
 }
 
+import fs from "fs";
+import path from "path";
+
+function logToFile(msg: string) {
+  try {
+    fs.appendFileSync(path.join(process.cwd(), "x402-error.log"), `[${new Date().toISOString()}] ${msg}\n`);
+  } catch (e) {}
+}
+
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const adapter = createAdapter(request, body);
-  const httpServer = await getX402Server();
-  const context = {
-    adapter,
-    path: "/api/x402/agents/execute",
-    method: "POST",
-    paymentHeader: request.headers.get("PAYMENT-SIGNATURE") || undefined
-  };
+  try {
+    const body = await request.json();
+    const adapter = createAdapter(request, body);
+    const httpServer = await getX402Server();
+    const context = {
+      adapter,
+      path: "/api/x402/agents/execute",
+      method: "POST",
+      paymentHeader: request.headers.get("PAYMENT-SIGNATURE") || undefined
+    };
 
-  const paymentResult = await httpServer.processHTTPRequest(context);
-  if (paymentResult.type === "payment-error") {
-    return responseFromInstructions(paymentResult.response);
-  }
-  if (paymentResult.type !== "payment-verified") {
-    return NextResponse.json({ error: "x402_route_not_protected" }, { status: 500 });
-  }
+    const paymentResult = await httpServer.processHTTPRequest(context);
+    if (paymentResult.type === "payment-error") {
+      logToFile("Payment result is payment-error: " + JSON.stringify(paymentResult.response));
+      return responseFromInstructions(paymentResult.response);
+    }
+    if (paymentResult.type !== "payment-verified") {
+      logToFile("Payment result is not payment-verified: " + paymentResult.type);
+      return NextResponse.json({ error: "x402_route_not_protected" }, { status: 500 });
+    }
 
-  const settlement = await httpServer.processSettlement(
-    paymentResult.paymentPayload,
-    paymentResult.paymentRequirements,
-    paymentResult.declaredExtensions,
-    { request: context }
-  );
-  if (!settlement.success) {
-    return responseFromInstructions(settlement.response);
-  }
+    logToFile("Payment verified. Payload: " + JSON.stringify(paymentResult.paymentPayload));
 
-  const txId = settlement.transaction;
-  const internalResponse = await fetch(`${API_BASE}/api/v1/internal/x402/agents/execute`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Internal-Secret": INTERNAL_API_SECRET
-    },
-    body: JSON.stringify({
-      file_id: body.file_id,
-      agent_ids: body.agent_ids,
-      tx_id: txId,
-      payer: settlement.payer,
-      network: settlement.network || X402_NETWORK,
-      facilitator: FACILITATOR_URL,
-      amount_paid: totalMicroUsdc(body),
-      payment_response: settlement
-    })
-  });
-  const payload = await internalResponse.json();
-  if (!internalResponse.ok) {
-    return NextResponse.json(
-      { error: "agent_execution_failed_after_x402_settlement", receipt: receiptFromSettlement(settlement), detail: payload },
-      { status: internalResponse.status, headers: settlement.headers }
+    const settlement = await httpServer.processSettlement(
+      paymentResult.paymentPayload,
+      paymentResult.paymentRequirements,
+      paymentResult.declaredExtensions,
+      { request: context }
     );
-  }
+    if (!settlement.success) {
+      logToFile("Settlement failed: " + JSON.stringify(settlement));
+      return responseFromInstructions(settlement.response);
+    }
 
-  return NextResponse.json(
-    {
-      ...payload,
-      receipt: {
-        ...payload.receipt,
-        ...receiptFromSettlement(settlement)
-      }
-    },
-    { headers: { ...settlement.headers, "Access-Control-Expose-Headers": "PAYMENT-RESPONSE" } }
-  );
+    logToFile("Settlement succeeded. Transaction: " + settlement.transaction);
+
+    const txId = settlement.transaction;
+    const internalResponse = await fetch(`${API_BASE}/api/v1/internal/x402/agents/execute`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Secret": INTERNAL_API_SECRET
+      },
+      body: JSON.stringify({
+        file_id: body.file_id,
+        agent_ids: body.agent_ids,
+        tx_id: txId,
+        payer: settlement.payer,
+        network: settlement.network || X402_NETWORK,
+        facilitator: FACILITATOR_URL,
+        amount_paid: totalMicroUsdc(body),
+        payment_response: settlement
+      })
+    });
+    const payload = await internalResponse.json();
+    if (!internalResponse.ok) {
+      logToFile("Internal response not ok: " + internalResponse.status + " " + JSON.stringify(payload));
+      return NextResponse.json(
+        { error: "agent_execution_failed_after_x402_settlement", receipt: receiptFromSettlement(settlement), detail: payload },
+        { status: internalResponse.status, headers: settlement.headers }
+      );
+    }
+
+    logToFile("API route successful. Returning results.");
+
+    return NextResponse.json(
+      {
+        ...payload,
+        receipt: {
+          ...payload.receipt,
+          ...receiptFromSettlement(settlement)
+        }
+      },
+      { headers: { ...settlement.headers, "Access-Control-Expose-Headers": "PAYMENT-RESPONSE" } }
+    );
+  } catch (err) {
+    logToFile("POST exception: " + (err instanceof Error ? err.stack : String(err)));
+    throw err;
+  }
 }
 
 function createAdapter(request: NextRequest, body: unknown) {
@@ -279,7 +328,7 @@ function formatUsdPrice(microUsdc: number) {
   return `$${dollars.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`;
 }
 
-function receiptFromSettlement(settlement: { transaction?: string; payer?: string; network?: string; success: boolean }) {
+function receiptFromSettlement(settlement: { transaction?: string; payer?: string; network?: string; success: boolean; verified_by?: string }) {
   return {
     protocol: "x402",
     facilitator: FACILITATOR_URL,
@@ -287,7 +336,8 @@ function receiptFromSettlement(settlement: { transaction?: string; payer?: strin
     tx_id: settlement.transaction,
     payer: settlement.payer,
     settlement_status: settlement.success ? "settled" : "failed",
-    pricing_model: "pay-per-use"
+    pricing_model: "pay-per-use",
+    verified_by: settlement.verified_by || "GoPlausible Facilitator"
   };
 }
 

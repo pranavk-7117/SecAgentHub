@@ -92,6 +92,8 @@ async def run_x402_settled_agents(
             raise HTTPException(status_code=404, detail=f"Unknown agent {agent_id}")
         output = execute_agent(agent_id, scan.parsed, scan.raw_checkov_json, scan.graph, scan.raw_hcl)
         outputs[agent_id] = output
+
+        verified_by = request.payment_response.get("verified_by", "GoPlausible Facilitator")
         executions.append(
             repository.save_execution(
                 AgentExecutionRecord(
@@ -110,12 +112,12 @@ async def run_x402_settled_agents(
                             "network": request.network,
                             "facilitator": request.facilitator,
                             "amount_paid": request.amount_paid,
+                            "verified_by": verified_by,
                         },
                     },
                 )
             )
         )
-
     receipt = {
         "protocol": "x402",
         "facilitator": request.facilitator,
