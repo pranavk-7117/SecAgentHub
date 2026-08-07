@@ -77,14 +77,16 @@ export default function LoginPage() {
         </div>
 
         {/* Tab switcher */}
-        <div className="mb-6 flex gap-1 rounded-lg bg-slate-850 p-1">
+        <div className="mb-6 flex gap-1 rounded-lg bg-slate-950 p-1">
           <button
+            type="button"
             onClick={() => { setActiveTab("signin"); setMessage(""); }}
             className={`flex-1 rounded-md py-2 text-sm font-medium transition ${activeTab === "signin" ? "bg-slate-800 text-white shadow" : "text-slate-400 hover:text-slate-200"}`}
           >
             Sign In
           </button>
           <button
+            type="button"
             onClick={() => { setActiveTab("signup"); setMessage(""); }}
             className={`flex-1 rounded-md py-2 text-sm font-medium transition ${activeTab === "signup" ? "bg-slate-800 text-white shadow" : "text-slate-400 hover:text-slate-200"}`}
           >
@@ -94,25 +96,25 @@ export default function LoginPage() {
 
         <form onSubmit={handleAuthAction} className="space-y-4">
           <div className="relative">
-            <Mail className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500" />
             <Input
               type="email"
               placeholder="email@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 bg-slate-850 border-slate-800 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-teal-500/20"
+              className="pl-10 bg-slate-950 border-slate-800 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-teal-500/20"
               required
             />
           </div>
 
           <div className="relative">
-            <Lock className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500" />
             <Input
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 bg-slate-850 border-slate-800 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-teal-500/20"
+              className="pl-10 bg-slate-950 border-slate-800 text-white placeholder-slate-500 focus:border-teal-500 focus:ring-teal-500/20"
               required
             />
           </div>
@@ -134,7 +136,7 @@ export default function LoginPage() {
         <Button
           onClick={handleGoogleSignIn}
           type="button"
-          className="w-full border border-slate-850 bg-slate-850 text-slate-200 hover:bg-slate-800 hover:text-white flex items-center justify-center gap-2 transition"
+          className="w-full border border-slate-800 bg-slate-950 text-slate-200 hover:bg-slate-900 hover:text-white flex items-center justify-center gap-2 transition"
           disabled={loading}
         >
           <Chrome className="h-4.5 w-4.5" />
