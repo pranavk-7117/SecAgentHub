@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import requests
 from typing import Annotated
 
-from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
@@ -26,6 +27,31 @@ app.add_middleware(
 )
 
 
+def get_current_user_id(authorization: str | None = Header(None)) -> str:
+    settings = get_settings()
+    if not settings.supabase_url:
+        return "00000000-0000-0000-0000-000000000000"
+
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authentication credentials.")
+
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        url = f"{settings.supabase_url}/auth/v1/user"
+        headers = {
+            "apikey": settings.supabase_service_role_key,
+            "Authorization": f"Bearer {token}"
+        }
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            return res.json().get("id")
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"Authentication validation failed: {str(exc)}")
+
+    raise HTTPException(status_code=401, detail="Authentication token is expired or invalid.")
+
+
+
 @app.get("/api/v1/health")
 async def health() -> dict[str, object]:
     settings = get_settings()
@@ -37,14 +63,17 @@ async def health() -> dict[str, object]:
 
 
 @app.post("/api/v1/scan/upload", response_model=UploadResponse)
-async def upload_scan(file: UploadFile = File(...)) -> UploadResponse:
+async def upload_scan(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id)
+) -> UploadResponse:
     if not file.filename.endswith(".tf"):
         raise HTTPException(status_code=400, detail="Only Terraform .tf files are supported.")
     raw_hcl = (await file.read()).decode("utf-8")
     parsed = parse_terraform(raw_hcl)
     findings = run_checkov(raw_hcl, file.filename)
     graph = build_attack_graph(parsed, findings)
-    scan = repository.create_scan(ScanRecord(filename=file.filename, raw_hcl=raw_hcl, parsed=parsed, raw_checkov_json=findings, graph=graph))
+    scan = repository.create_scan(ScanRecord(user_id=user_id, filename=file.filename, raw_hcl=raw_hcl, parsed=parsed, raw_checkov_json=findings, graph=graph))
     return UploadResponse(scan_id=scan.id, findings_summary=summarize_findings(findings), agents=AGENTS)
 
 
@@ -54,7 +83,8 @@ async def run_agents(
     authorization: Annotated[str | None, Header()] = None,
     x_payment_proof: Annotated[str | None, Header(alias="X-PAYMENT-PROOF")] = None,
 ) -> dict[str, object]:
-    scan = repository.get_scan(request.file_id)
+    user_id = get_current_user_id(authorization)
+    scan = repository.get_scan(request.file_id, user_id=user_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found.")
     await require_agent_payments(request.file_id, request.agent_ids, authorization, x_payment_proof)
@@ -69,6 +99,7 @@ async def run_agents(
                 execution.status = "executed"
                 repository.save_execution(execution)
     return {"scan_id": scan.id, "outputs": outputs, "executions": [row.model_dump(mode="json") for row in repository.get_executions(scan.id)]}
+
 
 
 @app.post("/api/v1/internal/x402/agents/execute")
@@ -137,22 +168,24 @@ async def run_x402_settled_agents(
 
 
 @app.get("/api/v1/graph/{file_id}")
-async def get_graph(file_id: str) -> dict[str, object]:
-    scan = repository.get_scan(file_id)
+async def get_graph(file_id: str, user_id: str = Depends(get_current_user_id)) -> dict[str, object]:
+    scan = repository.get_scan(file_id, user_id=user_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found.")
     return scan.graph
 
 
 @app.get("/api/v1/payments/quote")
-async def get_payment_quote(scan_id: str, agent_id: str) -> dict[str, object]:
-    if repository.get_scan(scan_id) is None:
+async def get_payment_quote(scan_id: str, agent_id: str, user_id: str = Depends(get_current_user_id)) -> dict[str, object]:
+    if repository.get_scan(scan_id, user_id=user_id) is None:
         raise HTTPException(status_code=404, detail="Scan not found.")
     return payment_quote(scan_id, agent_id)
 
 
 @app.get("/api/v1/payments/status")
-async def get_payment_status(scan_id: str, agent_id: str, tx_id: str | None = None) -> dict[str, object]:
+async def get_payment_status(scan_id: str, agent_id: str, tx_id: str | None = None, user_id: str = Depends(get_current_user_id)) -> dict[str, object]:
+    if repository.get_scan(scan_id, user_id=user_id) is None:
+        raise HTTPException(status_code=404, detail="Scan not found.")
     executions = [row for row in repository.get_executions(scan_id) if row.agent_id == agent_id]
     if tx_id:
         executions = [row for row in executions if row.tx_hash == tx_id]
@@ -160,24 +193,24 @@ async def get_payment_status(scan_id: str, agent_id: str, tx_id: str | None = No
 
 
 @app.get("/api/v1/payments/inspect")
-async def inspect_payment(scan_id: str, agent_id: str, tx_id: str) -> dict[str, object]:
-    if repository.get_scan(scan_id) is None:
+async def inspect_payment(scan_id: str, agent_id: str, tx_id: str, user_id: str = Depends(get_current_user_id)) -> dict[str, object]:
+    if repository.get_scan(scan_id, user_id=user_id) is None:
         raise HTTPException(status_code=404, detail="Scan not found.")
     quote = payment_quote(scan_id, agent_id)
     return await inspect_algorand_payment(tx_id, int(quote["price_in_microalgos"]), str(quote["challenge"]))
 
 
 @app.post("/api/v1/ai/chat")
-async def chat(request: ChatRequest) -> dict[str, str]:
-    scan = repository.get_scan(request.scan_id)
+async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)) -> dict[str, str]:
+    scan = repository.get_scan(request.scan_id, user_id=user_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found.")
     return {"answer": answer_question(request.question, scan.raw_hcl, scan.raw_checkov_json)}
 
 
 @app.get("/api/v1/scan/{scan_id}")
-async def get_scan(scan_id: str) -> dict[str, object]:
-    scan = repository.get_scan(scan_id)
+async def get_scan(scan_id: str, user_id: str = Depends(get_current_user_id)) -> dict[str, object]:
+    scan = repository.get_scan(scan_id, user_id=user_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found.")
     return {
@@ -189,9 +222,9 @@ async def get_scan(scan_id: str) -> dict[str, object]:
 
 
 @app.get("/api/v1/scans")
-async def list_scans() -> dict[str, object]:
+async def list_scans(user_id: str = Depends(get_current_user_id)) -> dict[str, object]:
     scans = []
-    for scan in repository.list_scans():
+    for scan in repository.list_scans(user_id=user_id):
         executions = repository.get_executions(scan.id)
         scans.append(
             {
@@ -205,13 +238,34 @@ async def list_scans() -> dict[str, object]:
 
 
 @app.get("/api/v1/scan/{scan_id}/report")
-async def report(scan_id: str) -> Response:
-    scan = repository.get_scan(scan_id)
+async def report(scan_id: str, user_id: str = Depends(get_current_user_id)) -> Response:
+    scan = repository.get_scan(scan_id, user_id=user_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found.")
-    data = build_pdf(scan, repository.get_executions(scan_id))
+    executions = repository.get_executions(scan_id)
+    successful_payment = any(row.status == "executed" for row in executions)
+    if not successful_payment:
+        raise HTTPException(
+            status_code=403,
+            detail="Scan report is locked. At least one payment transaction must be verified and executed to view/download reports.",
+        )
+    data = build_pdf(scan, executions)
     return Response(
         content=data,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="secagent-{scan_id}.pdf"'},
     )
+
+
+@app.delete("/api/v1/scan/{scan_id}")
+async def delete_scan(scan_id: str, user_id: str = Depends(get_current_user_id)) -> dict[str, bool]:
+    # Check scan ownership first
+    scan = repository.get_scan(scan_id, user_id=user_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+    success = repository.delete_scan(scan_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+    return {"success": True}
+
+

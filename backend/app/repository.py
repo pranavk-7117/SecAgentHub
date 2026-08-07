@@ -8,12 +8,15 @@ from app.models import AgentExecutionRecord, ScanRecord
 
 class Repository(Protocol):
     def create_scan(self, scan: ScanRecord) -> ScanRecord: ...
-    def get_scan(self, scan_id: str) -> ScanRecord | None: ...
-    def list_scans(self) -> list[ScanRecord]: ...
+    def get_scan(self, scan_id: str, user_id: str | None = None) -> ScanRecord | None: ...
+    def list_scans(self, user_id: str | None = None) -> list[ScanRecord]: ...
+
     def save_execution(self, execution: AgentExecutionRecord) -> AgentExecutionRecord: ...
     def get_executions(self, scan_id: str) -> list[AgentExecutionRecord]: ...
     def has_paid(self, scan_id: str, agent_id: str) -> bool: ...
     def tx_used(self, tx_hash: str) -> bool: ...
+    def delete_scan(self, scan_id: str) -> bool: ...
+
 
 
 class InMemoryRepository:
@@ -53,11 +56,18 @@ class InMemoryRepository:
         self._persist()
         return scan
 
-    def get_scan(self, scan_id: str) -> ScanRecord | None:
-        return self.scans.get(scan_id)
+    def get_scan(self, scan_id: str, user_id: str | None = None) -> ScanRecord | None:
+        scan = self.scans.get(scan_id)
+        if scan and user_id and scan.user_id != user_id:
+            return None
+        return scan
 
-    def list_scans(self) -> list[ScanRecord]:
-        return sorted(self.scans.values(), key=lambda row: row.created_at, reverse=True)
+    def list_scans(self, user_id: str | None = None) -> list[ScanRecord]:
+        rows = list(self.scans.values())
+        if user_id:
+            rows = [r for r in rows if r.user_id == user_id]
+        return sorted(rows, key=lambda row: row.created_at, reverse=True)
+
 
     def save_execution(self, execution: AgentExecutionRecord) -> AgentExecutionRecord:
         self.executions[execution.id] = execution
@@ -77,6 +87,15 @@ class InMemoryRepository:
 
     def tx_used(self, tx_hash: str) -> bool:
         return tx_hash in self.used_tx_hashes
+
+    def delete_scan(self, scan_id: str) -> bool:
+        if scan_id not in self.scans:
+            return False
+        del self.scans[scan_id]
+        self.executions = {k: v for k, v in self.executions.items() if v.scan_id != scan_id}
+        self._persist()
+        return True
+
 
 class PostgresRepository:
     def __init__(self, database_url: str) -> None:
@@ -152,19 +171,26 @@ class PostgresRepository:
                 )
         return scan
 
-    def get_scan(self, scan_id: str) -> ScanRecord | None:
+    def get_scan(self, scan_id: str, user_id: str | None = None) -> ScanRecord | None:
         with self._connect() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM scans WHERE id = %s", (scan_id,))
+                if user_id:
+                    cur.execute("SELECT * FROM scans WHERE id = %s AND user_id = %s", (scan_id, user_id))
+                else:
+                    cur.execute("SELECT * FROM scans WHERE id = %s", (scan_id,))
                 row = cur.fetchone()
         return _scan_from_row(row) if row else None
 
-    def list_scans(self) -> list[ScanRecord]:
+    def list_scans(self, user_id: str | None = None) -> list[ScanRecord]:
         with self._connect() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM scans ORDER BY created_at DESC LIMIT 100")
+                if user_id:
+                    cur.execute("SELECT * FROM scans WHERE user_id = %s ORDER BY created_at DESC LIMIT 100", (user_id,))
+                else:
+                    cur.execute("SELECT * FROM scans ORDER BY created_at DESC LIMIT 100")
                 rows = cur.fetchall()
         return [_scan_from_row(row) for row in rows]
+
 
     def save_execution(self, execution: AgentExecutionRecord) -> AgentExecutionRecord:
         with self._connect() as conn:
@@ -216,6 +242,17 @@ class PostgresRepository:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1 FROM agent_executions WHERE tx_hash = %s LIMIT 1", (tx_hash,))
                 return cur.fetchone() is not None
+
+    def delete_scan(self, scan_id: str) -> bool:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM scans WHERE id = %s LIMIT 1", (scan_id,))
+                if cur.fetchone() is None:
+                    return False
+                cur.execute("DELETE FROM agent_executions WHERE scan_id = %s", (scan_id,))
+                cur.execute("DELETE FROM scans WHERE id = %s", (scan_id,))
+        return True
+
 
 
 def _scan_from_row(row: dict) -> ScanRecord:

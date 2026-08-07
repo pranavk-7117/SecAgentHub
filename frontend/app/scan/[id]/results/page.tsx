@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Brain, Download, MessageSquare, ReceiptText, ShieldCheck, Target } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Brain, Download, MessageSquare, ReceiptText, ShieldCheck, Target, Lock, Trash2 } from "lucide-react";
 import { RiskGraph } from "@/components/RiskGraph";
 import { Shell } from "@/components/Shell";
-import { API_BASE, askScan, getScan } from "@/lib/api";
+import { API_BASE, askScan, getScan, deleteScan } from "@/lib/api";
 import { Badge, Button, Card, Input, Table } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
 
+
 export default function ResultsPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [scan, setScan] = useState<any>();
   const [severity, setSeverity] = useState("ALL");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     getScan(params.id).then(setScan);
@@ -29,6 +34,51 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
     setAnswer(result.answer);
   }
 
+  async function handleDeleteScan() {
+    if (!window.confirm("Are you sure you want to delete this scan and all its execution receipts permanently?")) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteScan(params.id);
+      router.push("/dashboard");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete scan");
+      setDeleting(false);
+    }
+  }
+
+  async function handleDownloadReport() {
+    setDownloading(true);
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch(`${API_BASE}/api/v1/scan/${params.id}/report`, { headers });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ detail: "Failed to download report" }));
+        throw new Error(payload.detail || "Failed to download report");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `secagent-${params.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || "Failed to download report");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+
   if (!scan) {
     return <Shell><Card>Loading scan...</Card></Shell>;
   }
@@ -40,6 +90,14 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
 
   return (
     <Shell>
+      {executedAgents.length === 0 ? (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 shadow-sm flex items-start gap-3">
+          <Lock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold">Scan Report Locked</span>: No successful agent executions have been verified for this scan. Select and run at least one agent from the dashboard to unlock PDF downloads and full audit compliance records.
+          </div>
+        </div>
+      ) : null}
       <div className="mb-8 flex flex-col gap-5 rounded-xl border border-white/80 bg-white/75 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] md:flex-row md:items-start md:justify-between">
         <div>
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
@@ -53,10 +111,26 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             )) : <Badge className="bg-slate-100 text-slate-600">No agents executed yet</Badge>}
           </div>
         </div>
-        <a href={`${API_BASE}/api/v1/scan/${params.id}/report`}>
-          <Button><Download className="h-4 w-4" /> Download Report</Button>
-        </a>
+        <div className="flex items-center gap-3">
+          {executedAgents.length === 0 ? (
+            <Button disabled className="opacity-50 cursor-not-allowed bg-slate-100 border border-slate-200 text-slate-400">
+              <Lock className="h-4 w-4 mr-1.5" /> Locked
+            </Button>
+          ) : (
+            <Button onClick={handleDownloadReport} disabled={downloading}>
+              <Download className="h-4 w-4 mr-1.5" /> {downloading ? "Downloading..." : "Download Report"}
+            </Button>
+          )}
+          <Button 
+            onClick={handleDeleteScan} 
+            disabled={deleting}
+            className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 font-semibold"
+          >
+            <Trash2 className="h-4 w-4 mr-1.5" /> Delete Scan
+          </Button>
+        </div>
       </div>
+
       <section className="mb-6 grid gap-4 md:grid-cols-3">
         <Card className="relative overflow-hidden">
           <Target className="mb-4 h-5 w-5 text-red-600" />

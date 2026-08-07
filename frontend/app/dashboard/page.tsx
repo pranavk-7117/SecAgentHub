@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowUpRight, FileSearch, Plus, Radar, ShieldAlert, WalletCards } from "lucide-react";
+import { ArrowUpRight, FileSearch, Plus, Radar, ShieldAlert, WalletCards, Trash2 } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { Badge, Button, Card, Table } from "@/components/ui";
 import { listScans } from "@/lib/api";
@@ -11,8 +11,25 @@ export default function DashboardPage() {
   const [scans, setScans] = useState<any[]>([]);
 
   useEffect(() => {
-    listScans().then((data) => setScans(data.scans || []));
+    loadScans();
   }, []);
+
+  function loadScans() {
+    listScans().then((data) => setScans(data.scans || []));
+  }
+
+  async function handleDelete(scanId: string, filename: string) {
+    if (!window.confirm(`Are you sure you want to delete scan "${filename}"?`)) {
+      return;
+    }
+    try {
+      const { deleteScan } = await import("@/lib/api");
+      await deleteScan(scanId);
+      loadScans();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete scan");
+    }
+  }
 
   return (
     <Shell>
@@ -50,12 +67,27 @@ export default function DashboardPage() {
         {scans.length ? (
           <Table>
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr><th className="px-5 py-3">File</th><th>Findings</th><th>Risk</th><th>Agents used</th><th>Created</th><th className="pr-5"></th></tr>
+              <tr>
+                <th className="px-5 py-3">File</th>
+                <th>Status</th>
+                <th>Findings</th>
+                <th>Risk</th>
+                <th>Agents used</th>
+                <th>Created</th>
+                <th className="pr-5"></th>
+              </tr>
             </thead>
             <tbody>
               {scans.map((scan) => (
                 <tr key={scan.id} className="border-t border-border bg-white/70 transition hover:bg-teal-50/50">
                   <td className="px-5 py-4 font-semibold">{scan.filename}</td>
+                  <td>
+                    {scan.agents_run?.length ? (
+                      <Badge className="bg-emerald-50 text-emerald-700">Success</Badge>
+                    ) : (
+                      <Badge className="bg-red-50 text-red-700">Failed</Badge>
+                    )}
+                  </td>
                   <td><Badge className="bg-amber-50 text-amber-700">{scan.findings_summary?.failed_count ?? scan.raw_checkov_json?.results?.failed_checks?.length ?? 0} findings</Badge></td>
                   <td><span className="font-semibold">{scan.graph?.blast_radius_score ?? 0}</span></td>
                   <td>
@@ -68,7 +100,18 @@ export default function DashboardPage() {
                     )}
                   </td>
                   <td>{new Date(scan.created_at).toLocaleString()}</td>
-                  <td className="pr-5 text-right"><Link className="inline-flex items-center gap-1 font-semibold text-teal-700" href={`/scan/${scan.id}/results`}>Open <ArrowUpRight className="h-4 w-4" /></Link></td>
+                  <td className="pr-5 text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <Link className="inline-flex items-center gap-1 font-semibold text-teal-700" href={`/scan/${scan.id}/results`}>Open <ArrowUpRight className="h-4 w-4" /></Link>
+                      <button
+                        onClick={() => handleDelete(scan.id, scan.filename)}
+                        className="inline-flex items-center gap-1 font-semibold text-red-600 hover:text-red-800 transition"
+                        title="Delete Scan"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -96,3 +139,4 @@ function agentLabel(agentId: string) {
     .replace("attack_path", "Attack path")
     .replace("ai_remediation", "AI fix");
 }
+
