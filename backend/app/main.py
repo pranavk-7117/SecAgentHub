@@ -30,7 +30,9 @@ app.add_middleware(
 def get_current_user_id(authorization: str | None = Header(None)) -> str:
     settings = get_settings()
     if not settings.supabase_url:
-        return "00000000-0000-0000-0000-000000000000"
+        fallback_uid = "00000000-0000-0000-0000-000000000000"
+        repository.ensure_user(fallback_uid, "local-dev@example.com")
+        return fallback_uid
 
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid authentication credentials.")
@@ -44,7 +46,12 @@ def get_current_user_id(authorization: str | None = Header(None)) -> str:
         }
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
-            return res.json().get("id")
+            data = res.json()
+            user_id = data.get("id")
+            email = data.get("email")
+            if user_id and email:
+                repository.ensure_user(user_id, email)
+                return user_id
     except Exception as exc:
         raise HTTPException(status_code=401, detail=f"Authentication validation failed: {str(exc)}")
 

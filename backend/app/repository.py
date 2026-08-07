@@ -16,6 +16,8 @@ class Repository(Protocol):
     def has_paid(self, scan_id: str, agent_id: str) -> bool: ...
     def tx_used(self, tx_hash: str) -> bool: ...
     def delete_scan(self, scan_id: str) -> bool: ...
+    def ensure_user(self, user_id: str, email: str) -> None: ...
+
 
 
 
@@ -95,6 +97,10 @@ class InMemoryRepository:
         self.executions = {k: v for k, v in self.executions.items() if v.scan_id != scan_id}
         self._persist()
         return True
+
+    def ensure_user(self, user_id: str, email: str) -> None:
+        pass
+
 
 
 class PostgresRepository:
@@ -252,6 +258,19 @@ class PostgresRepository:
                 cur.execute("DELETE FROM agent_executions WHERE scan_id = %s", (scan_id,))
                 cur.execute("DELETE FROM scans WHERE id = %s", (scan_id,))
         return True
+
+    def ensure_user(self, user_id: str, email: str) -> None:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO users (id, email)
+                    VALUES (%s, %s)
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    (user_id, email)
+                )
+
 
 
 
