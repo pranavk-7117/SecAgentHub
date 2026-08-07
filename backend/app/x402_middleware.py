@@ -49,6 +49,7 @@ async def require_agent_payments(
                     amount_paid=agent.price_in_microalgos,
                     pay_to_address=get_settings().facilitator_address,
                     challenge_nonce=challenge,
+                    network=verification.get("network", "testnet"),
                     status="verified",
                 )
             )
@@ -63,57 +64,80 @@ async def verify_algorand_payment(tx_id: str, amount: int, challenge: str) -> bo
 async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> dict[str, object]:
     settings = get_settings()
     if settings.allow_mock_payments and tx_id.startswith("mock-"):
-        return {"ok": True, "reason": "mock payment accepted"}
-    last_error: Exception | None = None
-    for attempt in range(5):
-        result = await _inspect_algorand_payment_once(tx_id, amount, challenge)
-        if result["ok"] or "indexer verification failed" not in str(result.get("reason", "")):
-            return result
-        last_error = result.get("error") if isinstance(result.get("error"), Exception) else None
-        if attempt < 4:
-            await asyncio.sleep(1.2)
+        return {"ok": True, "reason": "mock payment accepted", "network": "testnet"}
+
+    # Define networks to check: check testnet first, then mainnet
+    networks = ["testnet", "mainnet"]
+    last_error = None
+
+    for net in networks:
+        # Determine indexer url and usdc asset id depending on the network
+        if net == "mainnet":
+            idx_url = "https://mainnet-idx.algonode.cloud"
+            usdc_id = 31566704
+        else:
+            idx_url = "https://testnet-idx.algonode.cloud"
+            usdc_id = 10458941
+
+        # We try up to 3 times per network with a small delay to handle indexer propagation
+        for attempt in range(3):
+            try:
+                from algosdk.v2client import indexer
+                client = indexer.IndexerClient("", idx_url)
+                tx = client.transaction(tx_id).get("transaction", {})
+                if not tx:
+                    await asyncio.sleep(0.8)
+                    continue
+
+                transfer = tx.get("asset-transfer-transaction", {})
+                note = _decode_note(tx.get("note", ""))
+
+                if tx.get("confirmed-round", 0) <= 0:
+                    await asyncio.sleep(0.8)
+                    continue
+
+                if not transfer:
+                    break
+
+                observed_receiver = transfer.get("receiver")
+                observed_asset = int(transfer.get("asset-id", 0))
+                observed_amount = int(transfer.get("amount", 0))
+
+                if observed_receiver != settings.facilitator_address:
+                    break
+                if observed_asset != usdc_id:
+                    break
+                if observed_amount < amount:
+                    break
+                if challenge not in str(note):
+                    break
+
+                return {
+                    "ok": True,
+                    "reason": f"payment verified on {net}",
+                    "tx_id": tx_id,
+                    "network": net,
+                    "confirmed_round": tx.get("confirmed-round")
+                }
+            except Exception as exc:
+                last_error = exc
+                await asyncio.sleep(0.5)
+
     return {
         "ok": False,
-        "reason": f"indexer verification failed after retries: {type(last_error).__name__ if last_error else 'unknown'}",
+        "reason": f"payment could not be verified on testnet or mainnet. Last error: {last_error}",
         "tx_id": tx_id,
     }
-
-
-async def _inspect_algorand_payment_once(tx_id: str, amount: int, challenge: str) -> dict[str, object]:
-    settings = get_settings()
-    try:
-        from algosdk.v2client import indexer
-
-        client = indexer.IndexerClient("", settings.indexer_url)
-        tx = client.transaction(tx_id).get("transaction", {})
-        if not tx:
-            return {"ok": False, "reason": "transaction not found in indexer yet", "tx_id": tx_id}
-        transfer = tx.get("asset-transfer-transaction", {})
-        note = _decode_note(tx.get("note", ""))
-        if tx.get("confirmed-round", 0) <= 0:
-            return {"ok": False, "reason": "transaction is not confirmed yet", "tx_id": tx_id}
-        if not transfer:
-            return {"ok": False, "reason": "transaction is not an Algorand ASA transfer", "tx_id": tx_id, "tx_type": tx.get("tx-type")}
-        observed_receiver = transfer.get("receiver")
-        observed_asset = int(transfer.get("asset-id", 0))
-        observed_amount = int(transfer.get("amount", 0))
-        if observed_receiver != settings.facilitator_address:
-            return {"ok": False, "reason": "receiver address does not match facilitator", "expected": settings.facilitator_address, "observed": observed_receiver}
-        if observed_asset != int(settings.usdc_asa_id):
-            return {"ok": False, "reason": "asset id does not match configured TestNet USDC ASA", "expected": settings.usdc_asa_id, "observed": observed_asset}
-        if observed_amount < amount:
-            return {"ok": False, "reason": "payment amount is too low", "expected_minimum": amount, "observed": observed_amount}
-        if challenge not in str(note):
-            return {"ok": False, "reason": "transaction note does not contain this agent challenge", "expected_challenge": challenge, "observed_note": note}
-        return {"ok": True, "reason": "payment verified", "tx_id": tx_id, "confirmed_round": tx.get("confirmed-round")}
-    except Exception as exc:
-        return {"ok": False, "reason": f"indexer verification failed: {type(exc).__name__}: {exc}", "tx_id": tx_id, "error": exc}
 
 
 def _extract_tx_id(authorization: str | None, proof: str | None) -> str | None:
     if authorization and authorization.lower().startswith("x402 "):
         return authorization.split(" ", 1)[1].strip()
-    return proof
+    if proof and proof.lower().startswith("x402 "):
+        return proof.split(" ", 1)[1].strip()
+    if proof:
+        return proof.strip()
+    return None
 
 
 def _challenge_for(scan_id: str, agent_id: str) -> str:

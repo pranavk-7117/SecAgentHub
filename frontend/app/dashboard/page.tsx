@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowUpRight, FileSearch, Plus, Radar, ShieldAlert, WalletCards, Trash2 } from "lucide-react";
+import { ArrowUpRight, FileSearch, Plus, Radar, ShieldAlert, WalletCards, Trash2, Lock } from "lucide-react";
+
 import { Shell } from "@/components/Shell";
 import { Badge, Button, Card, Table } from "@/components/ui";
 import { listScans } from "@/lib/api";
@@ -93,7 +94,18 @@ export default function DashboardPage() {
                   <td>
                     {scan.agents_run?.length ? (
                       <div className="flex max-w-xs flex-wrap gap-1.5">
-                        {scan.agents_run.map((agent: string) => <Badge key={agent} className="bg-teal-50 text-teal-700">{agentLabel(agent)}</Badge>)}
+                        {scan.agents_run.map((agent: string) => {
+                          const exec = scan.agent_executions?.find((e: any) => e.agent_id === agent);
+                          const isMainnet = exec?.network === "mainnet";
+                          return (
+                            <div key={agent} className="flex items-center gap-1">
+                              <Badge className="bg-teal-50 text-teal-700">{agentLabel(agent)}</Badge>
+                              <Badge className={isMainnet ? "bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-1 py-0" : "bg-sky-50 text-sky-700 border-sky-200 text-[10px] px-1 py-0"}>
+                                {isMainnet ? "MainNet" : "TestNet"}
+                              </Badge>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <span className="text-sm text-slate-400">None</span>
@@ -102,7 +114,16 @@ export default function DashboardPage() {
                   <td>{new Date(scan.created_at).toLocaleString()}</td>
                   <td className="pr-5 text-right">
                     <div className="flex items-center justify-end gap-3">
-                      <Link className="inline-flex items-center gap-1 font-semibold text-teal-700" href={`/scan/${scan.id}/results`}>Open <ArrowUpRight className="h-4 w-4" /></Link>
+                      {scan.agents_run?.length ? (
+                        <Link className="inline-flex items-center gap-1 font-semibold text-teal-700" href={`/scan/${scan.id}/results`}>
+                          Open <ArrowUpRight className="h-4 w-4" />
+                        </Link>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 font-semibold text-slate-400 cursor-not-allowed select-none" title="Run agents to unlock scan results">
+                          Locked <Lock className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+
                       <button
                         onClick={() => handleDelete(scan.id, scan.filename)}
                         className="inline-flex items-center gap-1 font-semibold text-red-600 hover:text-red-800 transition"

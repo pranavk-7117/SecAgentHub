@@ -141,6 +141,7 @@ class PostgresRepository:
           challenge_nonce TEXT NOT NULL,
           status TEXT NOT NULL DEFAULT 'pending',
           output_data JSONB,
+          network TEXT NOT NULL DEFAULT 'testnet',
           created_at TIMESTAMPTZ DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS reports (
@@ -150,6 +151,7 @@ class PostgresRepository:
           generated_at TIMESTAMPTZ DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_agent_executions_scan_id ON agent_executions(scan_id);
+        ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS network TEXT DEFAULT 'testnet';
         """
         with self._connect() as conn:
             with conn.cursor() as cur:
@@ -204,9 +206,9 @@ class PostgresRepository:
                 cur.execute(
                     """
                     INSERT INTO agent_executions
-                      (id, scan_id, agent_id, tx_hash, amount_paid, pay_to_address, challenge_nonce, status, output_data, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)
-                    ON CONFLICT (tx_hash) DO UPDATE SET status = EXCLUDED.status, output_data = EXCLUDED.output_data
+                      (id, scan_id, agent_id, tx_hash, amount_paid, pay_to_address, challenge_nonce, status, output_data, network, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+                    ON CONFLICT (tx_hash) DO UPDATE SET status = EXCLUDED.status, output_data = EXCLUDED.output_data, network = EXCLUDED.network
                     """,
                     (
                         execution.id,
@@ -218,6 +220,7 @@ class PostgresRepository:
                         execution.challenge_nonce,
                         execution.status,
                         json.dumps(execution.output_data) if execution.output_data is not None else None,
+                        execution.network,
                         execution.created_at,
                     ),
                 )
@@ -298,6 +301,7 @@ def _execution_from_row(row: dict) -> AgentExecutionRecord:
         challenge_nonce=row["challenge_nonce"],
         status=row["status"],
         output_data=row.get("output_data"),
+        network=row.get("network") or "testnet",
         created_at=row["created_at"],
     )
 

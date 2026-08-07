@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+
 import { AlertTriangle, Brain, Download, MessageSquare, ReceiptText, ShieldCheck, Target, Lock, Trash2 } from "lucide-react";
 import { RiskGraph } from "@/components/RiskGraph";
 import { Shell } from "@/components/Shell";
@@ -88,6 +90,31 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   const executedAgents = (scan.agent_executions || []).filter((row: any) => row.status === "executed" && row.output_data);
   const executedAgentIds = executedAgents.map((row: any) => row.agent_id);
 
+  if (executedAgents.length === 0) {
+    return (
+      <Shell>
+        <Card className="max-w-2xl mx-auto my-12 text-center p-8 border-amber-250 bg-amber-50/50 backdrop-blur shadow-xl">
+          <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-amber-100/80">
+            <Lock className="h-8 w-8 text-amber-700" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900">Scan Results Locked</h2>
+          <p className="mt-3 text-slate-600">
+            No successful agent executions have been verified for this scan. Select and run at least one agent from the dashboard to unlock findings, remediation guidance, and compliance reports.
+          </p>
+          <div className="mt-6 flex justify-center gap-4">
+            <Link href="/dashboard">
+              <Button>Go to Dashboard</Button>
+            </Link>
+            <Link href={`/scan/${scan.id}/agents`}>
+              <Button className="bg-slate-800 hover:bg-slate-900 text-white border-none">Configure & Pay Agents</Button>
+            </Link>
+          </div>
+        </Card>
+      </Shell>
+    );
+  }
+
+
   return (
     <Shell>
       {executedAgents.length === 0 ? (
@@ -105,10 +132,19 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           </div>
           <h1 className="text-4xl font-semibold tracking-tight">{scan.filename}</h1>
           <p className="mt-2 text-slate-600">Attack graph, agent findings, remediation guidance, and x402 receipts.</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {executedAgentIds.length ? executedAgentIds.map((agentId: string) => (
-              <Badge key={agentId} className="bg-teal-50 text-teal-700">{agentLabel(agentId)} used</Badge>
-            )) : <Badge className="bg-slate-100 text-slate-600">No agents executed yet</Badge>}
+          <div className="mt-4 flex flex-wrap gap-2.5">
+            {executedAgentIds.length ? executedAgentIds.map((agentId: string) => {
+              const exec = scan.agent_executions?.find((e: any) => e.agent_id === agentId);
+              const isMainnet = exec?.network === "mainnet";
+              return (
+                <div key={agentId} className="flex items-center gap-1.5">
+                  <Badge className="bg-teal-50 text-teal-700">{agentLabel(agentId)} used</Badge>
+                  <Badge className={isMainnet ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-sky-50 text-sky-700 border-sky-200"}>
+                    {isMainnet ? "MainNet" : "TestNet"}
+                  </Badge>
+                </div>
+              );
+            }) : <Badge className="bg-slate-100 text-slate-600">No agents executed yet</Badge>}
           </div>
         </div>
         <div className="flex items-center gap-3">

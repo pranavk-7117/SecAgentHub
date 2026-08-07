@@ -34,7 +34,9 @@ class AgentExecutionRecord(BaseModel):
     challenge_nonce: str
     status: str = "pending"
     output_data: dict[str, Any] | None = None
+    network: str = "testnet"
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 
 class UploadResponse(BaseModel):

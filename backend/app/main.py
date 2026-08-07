@@ -238,6 +238,7 @@ async def list_scans(user_id: str = Depends(get_current_user_id)) -> dict[str, o
                 **scan.model_dump(mode="json"),
                 "findings_summary": summarize_findings(scan.raw_checkov_json),
                 "agents_run": [row.agent_id for row in executions if row.status == "executed"],
+                "agent_executions": [row.model_dump(mode="json") for row in executions if row.status == "executed"],
                 "agent_execution_count": len([row for row in executions if row.status == "executed"]),
             }
         )
