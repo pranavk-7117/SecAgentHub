@@ -6,7 +6,7 @@ import {
   ShieldCheck, ArrowRight, Zap, Cpu, Lock, Network,
   CheckCircle2, ShieldAlert, KeyRound, ClipboardCheck,
   Route, Sparkles, CreditCard, BarChart3, DollarSign,
-  Globe, ChevronRight
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
@@ -128,8 +128,8 @@ export default function LandingPage() {
       {/* ── Hero ── */}
       <section className="relative z-10 mx-auto max-w-7xl px-6 pt-24 pb-16 text-center">
         <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-teal-500/25 bg-teal-500/5 px-4 py-1.5 text-[11px] font-bold text-teal-400 tracking-widest uppercase">
-          <Zap className="h-3 w-3" />
-          x402 Micropayments · Algorand Blockchain
+          <ShieldCheck className="h-3 w-3" />
+          AI-Powered Cloud Security · Pay Per Analysis
         </div>
 
         <h1 className="text-5xl md:text-[72px] font-black tracking-[-0.03em] text-white max-w-5xl mx-auto leading-[1.04]">
@@ -176,34 +176,34 @@ export default function LandingPage() {
       <section id="features" className="relative z-10 border-t border-white/[0.06] py-20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center mb-14">
-            <p className="text-[11px] font-bold text-teal-400 uppercase tracking-[0.18em] mb-3">The Problem</p>
-            <h2 className="text-3xl md:text-[44px] font-black text-white tracking-tight">
-              Checkov Findings Are Just the Beginning
+            <p className="text-[11px] font-bold text-teal-400 uppercase tracking-[0.18em] mb-3">Why SecAgent Hub</p>
+            <h2 className="text-3xl md:text-[44px] font-black text-white tracking-tight max-w-3xl mx-auto leading-tight">
+              Security Scanning That Actually Tells You What to Do
             </h2>
-            <p className="mt-4 text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
-              Static scanners produce hundreds of findings but can't tell you which ones matter, how they connect, or how to fix them. That's where SecAgent Hub's AI agents come in.
+            <p className="mt-5 text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
+              Most tools produce a wall of findings and leave remediation to you. SecAgent Hub's AI agents understand your infrastructure, contextualise risk, and deliver precise, actionable guidance.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
             {[
               {
-                icon: Globe,
+                icon: DollarSign,
                 color: "teal",
-                title: "Pay Per Analysis",
-                desc: "No subscriptions, no seat licences. Every agent run costs a fixed amount of USDC, paid directly on the Algorand blockchain via x402 micropayments.",
+                title: "Analyse What You Need",
+                desc: "Choose from five specialised agents and run only the analyses relevant to your threat model. Each agent operates independently — no package deals, no wasted spend.",
               },
               {
                 icon: Cpu,
                 color: "violet",
-                title: "Prioritised AI Intelligence",
-                desc: "Our agents don't just list findings — they rank, explain, and connect them. Understand exactly which vulnerabilities to fix first and why.",
+                title: "AI-Driven Prioritisation",
+                desc: "Our agents don't just surface issues — they rank findings by exploitability, explain the business impact in plain language, and tell you exactly what to fix first.",
               },
               {
                 icon: Network,
                 color: "emerald",
-                title: "Graph-Based Attack Modelling",
-                desc: "Visualise how an attacker would move through your infrastructure. Map lateral paths, identify blast radius, and secure your critical assets proactively.",
+                title: "Attack-Path Visibility",
+                desc: "Understand how vulnerabilities chain together. Our graph-based analysis maps realistic attack paths through your infrastructure before threat actors find them.",
               },
             ].map(({ icon: Icon, color, title, desc }) => {
               const c = colorMap[color];
