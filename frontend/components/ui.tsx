@@ -1,15 +1,15 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-lg border border-white/70 bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur", className)} {...props} />;
+  return <div className={cn("rounded-xl border border-white/[0.07] bg-white/[0.04] p-5 shadow-xl shadow-black/30 backdrop-blur", className)} {...props} />;
 }
 
 export function Button({ className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       className={cn(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-[#07090f] disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
@@ -18,14 +18,14 @@ export function Button({ className, ...props }: React.ButtonHTMLAttributes<HTMLB
 }
 
 export function Badge({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <span className={cn("inline-flex items-center rounded-full border border-border bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-700", className)}>{children}</span>;
+  return <span className={cn("inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.05] px-2.5 py-1 text-xs font-semibold text-slate-300", className)}>{children}</span>;
 }
 
 export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       className={cn(
-        "h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20",
+        "h-10 w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20",
         className
       )}
       {...props}
