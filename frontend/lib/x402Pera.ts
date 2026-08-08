@@ -30,10 +30,19 @@ export async function executeAgentsWithX402(scanId: string, agentIds: string[]) 
 }
 
 async function executeAgentsWithX402Once(scanId: string, agentIds: string[]) {
+  // Try to reconnect an existing session first. If none, open the QR modal.
   let accounts = await peraWallet.reconnectSession().catch(() => [] as string[]);
-  if (!accounts.length) {
+  const isNewConnection = !accounts.length;
+
+  if (isNewConnection) {
     accounts = await peraWallet.connect();
+    // After scanning the QR code, the WalletConnect session needs a brief moment
+    // to fully establish before we can send a signing request. Without this delay,
+    // the transaction request is silently dropped because the mobile app hasn't
+    // completed the handshake. We wait 1.5s to ensure the session is ready.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
   }
+
   const address = accounts[0];
   const signer = {
     address,
