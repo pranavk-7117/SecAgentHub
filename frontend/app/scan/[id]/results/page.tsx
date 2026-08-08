@@ -249,6 +249,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           )}
         </Card>
       </section>
+      <Card className="mt-6 overflow-hidden p-0">
           <div className="border-b border-white/[0.06] bg-white/[0.03] px-5 py-4">
             <h2 className="flex items-center gap-2 text-xl font-bold text-white"><Brain className="h-5 w-5 text-teal-400" /> Agent analysis</h2>
             <p className="mt-1 text-sm text-slate-400">Distinct outputs from the agents you paid for and executed.</p>
@@ -260,11 +261,11 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             ))}
           </div>
         ) : (
-          <div className="m-5 rounded-lg bg-slate-50 p-5 text-sm text-slate-600">No agent output has been executed for this scan yet.</div>
+          <div className="m-5 rounded-lg bg-white/[0.03] border border-white/[0.06] p-5 text-sm text-slate-500">No agent output has been executed for this scan yet.</div>
         )}
       </Card>
       <Card className="mt-6">
-        <h2 className="mb-3 flex items-center gap-2 text-xl font-semibold"><ReceiptText className="h-5 w-5 text-teal-700" /> Payment receipts</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-xl font-bold text-white"><ReceiptText className="h-5 w-5 text-teal-400" /> Payment receipts</h2>
         <Table>
           <thead className="text-left text-slate-500"><tr><th className="py-2">Agent</th><th>Status</th><th>Amount</th><th>Transaction</th></tr></thead>
           <tbody>
