@@ -9,6 +9,7 @@ import {
   TrendingUp, Shield, Activity
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const AGENTS = [
   { icon: ShieldAlert, color: "teal",    badge: "0.25 USDC", name: "Misconfiguration Agent",  desc: "Surfaces publicly exposed resources, open security groups, missing encryption, and hardcoded credentials across your IaC — ranked by severity and exploitability.", tags: ["Open Ports","S3 Exposure","Missing Encryption"] },
@@ -32,7 +33,7 @@ export default function LandingPage() {
   useEffect(() => { supabase.auth.getSession().then(({ data:{session} }) => { if (session) setUser(session.user); }); },[]);
 
   return (
-    <div className="min-h-screen bg-[#07090f] text-slate-100 overflow-x-hidden" style={{fontFamily:"'Inter','system-ui',sans-serif"}}>
+    <div className="min-h-screen overflow-x-hidden" style={{ background: "var(--bg-base)", color: "var(--text-primary)", fontFamily:"'Inter','system-ui',sans-serif", transition: "background 0.2s ease" }}>
       <div className="pointer-events-none fixed inset-0 z-0" style={{backgroundImage:`linear-gradient(rgba(20,184,166,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,0.03) 1px,transparent 1px)`,backgroundSize:"72px 72px"}}/>
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-teal-500/7 blur-[150px] rounded-full"/>
@@ -60,6 +61,7 @@ export default function LandingPage() {
                 <Link href="/login"><button className="text-[13px] font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-white px-3 sm:px-4 py-2 rounded-lg transition backdrop-blur">Get Started</button></Link>
               </>
             )}
+            <ThemeToggle />
             <button onClick={()=>setMobileNavOpen(o=>!o)} className="md:hidden flex flex-col gap-1.5 p-2 rounded-lg hover:bg-white/5 transition" aria-label="Toggle menu">
               <span className={`block h-0.5 w-5 bg-slate-400 transition-all ${mobileNavOpen?"rotate-45 translate-y-2":""}`}/>
               <span className={`block h-0.5 w-5 bg-slate-400 transition-all ${mobileNavOpen?"opacity-0":""}`}/>
