@@ -60,7 +60,6 @@ export default function LandingPage() {
                 <Link href="/login"><button className="text-[13px] font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-white px-3 sm:px-4 py-2 rounded-lg transition backdrop-blur">Get Started</button></Link>
               </>
             )}
-            <ThemeToggle />
             <button onClick={()=>setMobileNavOpen(o=>!o)} className="md:hidden flex flex-col gap-1.5 p-2 rounded-lg hover:bg-white/5 transition" aria-label="Toggle menu">
               <span className={`block h-0.5 w-5 bg-slate-400 transition-all ${mobileNavOpen?"rotate-45 translate-y-2":""}`}/>
               <span className={`block h-0.5 w-5 bg-slate-400 transition-all ${mobileNavOpen?"opacity-0":""}`}/>
