@@ -9,7 +9,6 @@ import {
   TrendingUp, Shield, Activity
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 const AGENTS = [
   { icon: ShieldAlert, color: "teal",    badge: "0.25 USDC", name: "Misconfiguration Agent",  desc: "Surfaces publicly exposed resources, open security groups, missing encryption, and hardcoded credentials across your IaC — ranked by severity and exploitability.", tags: ["Open Ports","S3 Exposure","Missing Encryption"] },
@@ -33,7 +32,7 @@ export default function LandingPage() {
   useEffect(() => { supabase.auth.getSession().then(({ data:{session} }) => { if (session) setUser(session.user); }); },[]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden" style={{ background: "var(--bg-base)", color: "var(--text-primary)", fontFamily:"'Inter','system-ui',sans-serif", transition: "background 0.2s ease" }}>
+    <div className="min-h-screen bg-[#07090f] text-slate-100 overflow-x-hidden" style={{fontFamily:"'Inter','system-ui',sans-serif"}}>
       <div className="pointer-events-none fixed inset-0 z-0" style={{backgroundImage:`linear-gradient(rgba(20,184,166,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,0.03) 1px,transparent 1px)`,backgroundSize:"72px 72px"}}/>
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-teal-500/7 blur-[150px] rounded-full"/>

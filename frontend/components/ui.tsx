@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-xl border p-5 shadow-xl shadow-black/20 backdrop-blur transition-colors duration-200", className)} style={{ background: "var(--bg-card)", borderColor: "var(--border-card)" }} {...props} />;
+  return <div className={cn("rounded-xl border border-white/[0.07] bg-white/[0.04] p-5 shadow-xl shadow-black/30 backdrop-blur", className)} {...props} />;
 }
 
 export function Button({ className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {

@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, LogOut, User, LayoutDashboard, Plus, Home, Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -49,7 +48,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg-base)", color: "var(--text-primary)", fontFamily: "'Inter','system-ui',sans-serif", transition: "background 0.2s ease, color 0.2s ease" }}>
+    <div className="min-h-screen bg-[#07090f] text-slate-100" style={{ fontFamily: "'Inter','system-ui',sans-serif" }}>
 
       {/* Grid bg */}
       <div className="pointer-events-none fixed inset-0 z-0" style={{
@@ -61,7 +60,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b transition-colors duration-200" style={{ borderColor: "var(--border-card)", background: "var(--bg-header)", backdropFilter: "blur(24px)" }}>
+      <header className="sticky top-0 z-50 border-b border-white/[0.05] bg-[#07090f]/85 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 h-[62px]">
           <Link href="/dashboard" className="flex items-center gap-2.5 group">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-teal-400 to-emerald-500 shadow-lg shadow-teal-500/25 transition group-hover:scale-105">
@@ -81,12 +80,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:flex items-center gap-2 border rounded-lg px-3 py-1.5 transition-colors" style={{ borderColor: "var(--border-card)", background: "var(--bg-card)" }}>
-              <User className="h-3.5 w-3.5" style={{ color: "var(--text-muted)" }} />
-              <span className="max-w-[140px] truncate text-[12px] font-medium" style={{ color: "var(--text-secondary)" }} title={user.email}>{user.email}</span>
+            <div className="hidden sm:flex items-center gap-2 border border-white/[0.07] bg-white/[0.02] rounded-lg px-3 py-1.5">
+              <User className="h-3.5 w-3.5 text-slate-500" />
+              <span className="max-w-[140px] truncate text-[12px] font-medium text-slate-400" title={user.email}>{user.email}</span>
             </div>
-            <ThemeToggle />
-            <button onClick={handleSignOut} className="flex items-center gap-1.5 text-[12px] font-semibold border px-3 py-1.5 rounded-lg transition" style={{ borderColor: "var(--border-card)", color: "var(--text-muted)" }} title="Sign Out">
+            <button onClick={handleSignOut} className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 hover:text-red-400 border border-white/[0.06] bg-white/[0.02] hover:border-red-500/20 hover:bg-red-500/5 px-3 py-1.5 rounded-lg transition" title="Sign Out">
               <LogOut className="h-3.5 w-3.5" /><span className="hidden sm:inline">Sign Out</span>
             </button>
             {/* Mobile hamburger */}
