@@ -81,17 +81,17 @@ export default function AgentPickerPage({ params }: { params: { id: string } }) 
           const Icon = icons[agent.icon as keyof typeof icons] || ShieldAlert;
           const active = selected.includes(agent.id);
           return (
-            <Card key={agent.id} className={`relative overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_26px_80px_rgba(15,23,42,0.12)] ${active ? "border-teal-300 ring-2 ring-teal-600" : ""}`}>
-              {active ? <CheckCircle2 className="absolute right-4 top-4 h-5 w-5 text-teal-700" /> : null}
+            <Card key={agent.id} className={`relative overflow-hidden transition hover:-translate-y-0.5 hover:bg-white/[0.06] ${active ? "border-teal-400/60 ring-2 ring-teal-500/40" : ""}`}>
+              {active ? <CheckCircle2 className="absolute right-4 top-4 h-5 w-5 text-teal-400" /> : null}
               <div className="flex items-start gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-teal-50">
-                  <Icon className="h-6 w-6 text-teal-700" />
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-teal-500/10 border border-teal-500/20">
+                  <Icon className="h-6 w-6 text-teal-400" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="pr-7 text-lg font-semibold">{agent.name}</h2>
-                  <p className="mt-2 min-h-16 text-sm leading-6 text-slate-600">{agent.description}</p>
+                  <h2 className="pr-7 text-lg font-bold text-white">{agent.name}</h2>
+                  <p className="mt-2 min-h-16 text-sm leading-6 text-slate-400">{agent.description}</p>
                   <div className="mt-5 flex items-center justify-between">
-                    <Badge className="bg-slate-100 text-slate-700">{(agent.price_in_microalgos / 1_000_000).toFixed(2)} USDC</Badge>
+                    <Badge className="bg-white/[0.05] text-slate-300 border-white/[0.08]">{(agent.price_in_microalgos / 1_000_000).toFixed(2)} USDC</Badge>
                     <Button disabled={running} onClick={() => setSelected((old) => (old.includes(agent.id) ? old.filter((id) => id !== agent.id) : [...old, agent.id]))}>
                       {active ? "Selected" : "Select"}
                     </Button>
@@ -102,12 +102,12 @@ export default function AgentPickerPage({ params }: { params: { id: string } }) 
           );
         })}
       </div>
-      {selectedAgents.length ? <p className="mt-4 text-sm text-slate-600">Selected: {selectedAgents.map((agent) => agent.name).join(", ")}</p> : null}
+      {selectedAgents.length ? <p className="mt-4 text-sm text-slate-400">Selected: {selectedAgents.map((agent) => agent.name).join(", ")}</p> : null}
       {message ? (
-        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white/80 p-4 text-sm text-slate-700 md:flex-row md:items-center md:justify-between">
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-white/[0.07] bg-white/[0.04] backdrop-blur p-4 text-sm text-slate-300 md:flex-row md:items-center md:justify-between">
           <p>{message}</p>
           {message.toLowerCase().includes("pera") || message.toLowerCase().includes("wallet") ? (
-            <Button className="bg-slate-800 hover:bg-slate-900" onClick={resetWallet}>Reset Wallet</Button>
+            <Button className="bg-white/[0.06] border border-white/[0.08] hover:bg-white/[0.1] text-slate-200" onClick={resetWallet}>Reset Wallet</Button>
           ) : null}
         </div>
       ) : null}
