@@ -67,10 +67,10 @@ export default function AgentPickerPage({ params }: { params: { id: string } }) 
 
   return (
     <Shell>
-      <div className="mb-8 flex flex-col gap-5 rounded-xl border border-white/80 bg-white/75 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] md:flex-row md:items-center md:justify-between">
+      <div className="mb-8 flex flex-col gap-5 rounded-xl border border-white/[0.07] bg-white/[0.04] p-6 shadow-xl shadow-black/30 backdrop-blur md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-4xl font-semibold tracking-tight">Choose security agents</h1>
-          <p className="mt-2 text-slate-600">Select one or more specialist agents. Each agent gets its own x402 payment challenge.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Choose security agents</h1>
+          <p className="mt-2 text-slate-400">Select one or more specialist agents. Each agent gets its own x402 payment challenge.</p>
         </div>
         <Button disabled={!selected.length || running} onClick={() => run()}>
           {running ? "Waiting for Wallet..." : "Run Selected Agents"}

@@ -46,25 +46,25 @@ export default function NewScanPage() {
           </div>
         </div>
         <Card
-          className="flex min-h-[420px] flex-col items-center justify-center border-2 border-dashed border-teal-200 bg-white/85 text-center transition hover:border-teal-400 hover:bg-white"
+          className="flex min-h-[420px] flex-col items-center justify-center border-2 border-dashed border-teal-500/30 bg-white/[0.03] text-center transition hover:border-teal-500/60 hover:bg-white/[0.05]"
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => {
             event.preventDefault();
             setFile(event.dataTransfer.files?.[0] || null);
           }}
         >
-          <div className="mb-5 grid h-20 w-20 place-items-center rounded-lg bg-teal-50">
+          <div className="mb-5 grid h-20 w-20 place-items-center rounded-lg bg-teal-500/10 border border-teal-500/20">
             <UploadCloud className="h-10 w-10 text-teal-700" />
           </div>
           <input
             id="tf-upload"
-            className="block w-full max-w-sm cursor-pointer rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 file:mr-4 file:rounded-md file:border-0 file:bg-teal-700 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-teal-800"
+            className="block w-full max-w-sm cursor-pointer rounded-lg border border-white/[0.08] bg-white/[0.04] p-3 text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-teal-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-teal-500"
             type="file"
             accept=".tf,.hcl"
             onChange={(event) => setFile(event.target.files?.[0] || null)}
           />
-          <label htmlFor="tf-upload" className="mt-3 cursor-pointer text-sm font-semibold text-teal-700">Browse from your computer</label>
-          <p className="mt-2 text-sm text-slate-600">{file ? file.name : "or drag it into this secure upload zone"}</p>
+          <label htmlFor="tf-upload" className="mt-3 cursor-pointer text-sm font-semibold text-teal-400">Browse from your computer</label>
+          <p className="mt-2 text-sm text-slate-500">{file ? file.name : "or drag it into this secure upload zone"}</p>
           {file ? <Badge className="mt-4 bg-slate-100 text-slate-700">{Math.max(1, Math.round(file.size / 1024))} KB ready</Badge> : null}
           <Button className="mt-7 min-w-44" disabled={!file || loading} onClick={submit}>{loading ? "Scanning..." : "Upload and scan"}</Button>
           {error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p> : null}

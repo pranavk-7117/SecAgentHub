@@ -93,12 +93,12 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   if (executedAgents.length === 0) {
     return (
       <Shell>
-        <Card className="max-w-2xl mx-auto my-12 text-center p-8 border-amber-250 bg-amber-50/50 backdrop-blur shadow-xl">
-          <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-amber-100/80">
-            <Lock className="h-8 w-8 text-amber-700" />
+        <Card className="max-w-2xl mx-auto my-12 text-center p-8 border-amber-500/20 bg-amber-500/[0.04] backdrop-blur shadow-xl">
+          <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-amber-500/10 border border-amber-500/20">
+            <Lock className="h-8 w-8 text-amber-400" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">Scan Results Locked</h2>
-          <p className="mt-3 text-slate-600">
+          <h2 className="text-2xl font-bold text-white">Scan Results Locked</h2>
+          <p className="mt-3 text-slate-400">
             No successful agent executions have been verified for this scan. Select and run at least one agent from the dashboard to unlock findings, remediation guidance, and compliance reports.
           </p>
           <div className="mt-6 flex justify-center gap-4">
@@ -118,20 +118,20 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   return (
     <Shell>
       {executedAgents.length === 0 ? (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 shadow-sm flex items-start gap-3">
-          <Lock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/8 p-4 text-sm text-amber-300 shadow-sm flex items-start gap-3">
+          <Lock className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-semibold">Scan Report Locked</span>: No successful agent executions have been verified for this scan. Select and run at least one agent from the dashboard to unlock PDF downloads and full audit compliance records.
           </div>
         </div>
       ) : null}
-      <div className="mb-8 flex flex-col gap-5 rounded-xl border border-white/80 bg-white/75 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] md:flex-row md:items-start md:justify-between">
+      <div className="mb-8 flex flex-col gap-5 rounded-xl border border-white/[0.07] bg-white/[0.04] p-6 shadow-xl shadow-black/30 backdrop-blur md:flex-row md:items-start md:justify-between">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.05] px-3 py-1 text-xs font-semibold text-slate-400">
             Scan ID {String(scan.id).slice(0, 8)}
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight">{scan.filename}</h1>
-          <p className="mt-2 text-slate-600">Attack graph, agent findings, remediation guidance, and x402 receipts.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">{scan.filename}</h1>
+          <p className="mt-2 text-slate-400">Attack graph, agent findings, remediation guidance, and x402 receipts.</p>
           <div className="mt-4 flex flex-wrap gap-2.5">
             {executedAgentIds.length ? executedAgentIds.map((agentId: string) => {
               const exec = scan.agent_executions?.find((e: any) => e.agent_id === agentId);
@@ -149,7 +149,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         </div>
         <div className="flex items-center gap-3">
           {executedAgents.length === 0 ? (
-            <Button disabled className="opacity-50 cursor-not-allowed bg-slate-100 border border-slate-200 text-slate-400">
+            <Button disabled className="opacity-50 cursor-not-allowed bg-white/[0.04] border border-white/[0.08] text-slate-500">
               <Lock className="h-4 w-4 mr-1.5" /> Locked
             </Button>
           ) : (
@@ -160,7 +160,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           <Button 
             onClick={handleDeleteScan} 
             disabled={deleting}
-            className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 font-semibold"
+            className="border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 font-semibold"
           >
             <Trash2 className="h-4 w-4 mr-1.5" /> Delete Scan
           </Button>
@@ -172,22 +172,22 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           <Target className="mb-4 h-5 w-5 text-red-600" />
           <p className="text-sm font-medium text-slate-500">Overall risk</p>
           <div className="mt-3 flex items-end justify-between">
-            <p className="text-4xl font-semibold">{risk}</p>
-            <Badge className={risk >= 70 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}>{risk >= 70 ? "Critical" : "Watch"}</Badge>
+            <p className="text-4xl font-bold text-white">{risk}</p>
+            <Badge className={risk >= 70 ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}>{risk >= 70 ? "Critical" : "Watch"}</Badge>
           </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
             <div className="h-full rounded-full bg-red-500" style={{ width: `${Math.min(100, risk)}%` }} />
           </div>
         </Card>
         <Card>
           <AlertTriangle className="mb-4 h-5 w-5 text-amber-600" />
           <p className="text-sm font-medium text-slate-500">Findings</p>
-          <p className="mt-3 text-4xl font-semibold">{scan.findings_summary?.failed_count ?? 0}</p>
+          <p className="text-4xl font-bold text-white">{scan.findings_summary?.failed_count ?? 0}</p>
         </Card>
         <Card>
           <ShieldCheck className="mb-4 h-5 w-5 text-teal-700" />
           <p className="text-sm font-medium text-slate-500">Compliance</p>
-          <p className="mt-3 text-4xl font-semibold">{compliance}%</p>
+          <p className="mt-3 text-4xl font-bold text-white">{compliance}%</p>
         </Card>
       </section>
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -195,21 +195,21 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           <RiskGraph graph={scan.graph} />
         </Card>
         <Card>
-          <h2 className="mb-2 text-xl font-semibold">Critical attack paths</h2>
-          <p className="mb-4 text-sm text-slate-600">Top reachable chains are highlighted in the graph and capped here for triage.</p>
+          <h2 className="mb-2 text-xl font-bold text-white">Critical attack paths</h2>
+          <p className="mb-4 text-sm text-slate-400">Top reachable chains are highlighted in the graph and capped here for triage.</p>
           <div className="max-h-[455px] space-y-2 overflow-auto pr-2">
             {(scan.graph?.critical_attack_paths || []).map((path: string[], index: number) => (
-              <div key={index} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-900">{path.join(" -> ")}</div>
+              <div key={index} className="rounded-lg border border-red-500/20 bg-red-500/8 p-3 text-sm font-semibold text-red-300">{path.join(" -> ")}</div>
             ))}
-            {!scan.graph?.critical_attack_paths?.length ? <p className="rounded-lg bg-emerald-50 p-4 text-sm font-medium text-emerald-700">No public path detected.</p> : null}
+            {!scan.graph?.critical_attack_paths?.length ? <p className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4 text-sm font-medium text-emerald-400">No public path detected.</p> : null}
           </div>
         </Card>
       </section>
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Findings</h2>
-            <select className="h-9 rounded-md border border-border bg-white px-2 text-sm font-medium" value={severity} onChange={(event) => setSeverity(event.target.value)}>
+            <h2 className="text-xl font-bold text-white">Findings</h2>
+            <select className="h-9 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 text-sm font-medium text-slate-300" value={severity} onChange={(event) => setSeverity(event.target.value)}>
               {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((item) => <option key={item}>{item}</option>)}
             </select>
           </div>
@@ -217,7 +217,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             <Table>
               <tbody>
                 {findings.map((finding: any, index: number) => (
-                  <tr key={`${finding.check_id}-${index}`} className="border-t border-border align-top transition hover:bg-slate-50">
+                  <tr key={`${finding.check_id}-${index}`} className="border-t border-white/[0.04] align-top transition hover:bg-white/[0.03]">
                     <td className="py-3">
                       <div className="flex flex-col gap-1">
                         <SeverityBadge severity={finding.severity || "LOW"} />
@@ -225,8 +225,8 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
                       </div>
                     </td>
                     <td className="py-3">
-                      <p className="font-medium">{finding.check_id}</p>
-                      <p className="text-sm text-slate-600">{finding.check_name}</p>
+                      <p className="font-medium text-slate-200">{finding.check_id}</p>
+                      <p className="text-sm text-slate-400">{finding.check_name}</p>
                     </td>
                   </tr>
                 ))}
@@ -235,7 +235,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           </div>
         </Card>
         <Card>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold"><MessageSquare className="h-5 w-5 text-teal-700" /> AI remediation chat</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-white"><MessageSquare className="h-5 w-5 text-teal-400" /> AI remediation chat</h2>
           <div className="flex gap-2">
             <Input value={question} placeholder="Ask about this scan" onChange={(event) => setQuestion(event.target.value)} />
             <Button onClick={sendQuestion}>Ask</Button>
@@ -245,15 +245,14 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
               <Markdown content={answer} />
             </div>
           ) : (
-            <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Ask for impact, exploitability, or a Terraform fix for any finding.</div>
+            <div className="mt-4 rounded-lg bg-white/[0.03] border border-white/[0.06] p-4 text-sm text-slate-500">Ask for impact, exploitability, or a Terraform fix for any finding.</div>
           )}
         </Card>
       </section>
-      <Card className="mt-6 overflow-hidden p-0">
-        <div className="border-b border-slate-100 bg-slate-950 px-5 py-4 text-white">
-          <h2 className="flex items-center gap-2 text-xl font-semibold"><Brain className="h-5 w-5 text-teal-300" /> Agent analysis</h2>
-          <p className="mt-1 text-sm text-slate-300">Distinct outputs from the agents you paid for and executed.</p>
-        </div>
+          <div className="border-b border-white/[0.06] bg-white/[0.03] px-5 py-4">
+            <h2 className="flex items-center gap-2 text-xl font-bold text-white"><Brain className="h-5 w-5 text-teal-400" /> Agent analysis</h2>
+            <p className="mt-1 text-sm text-slate-400">Distinct outputs from the agents you paid for and executed.</p>
+          </div>
         {executedAgents.length ? (
           <div className="grid gap-4 p-5 lg:grid-cols-2">
             {executedAgents.map((execution: any) => (
