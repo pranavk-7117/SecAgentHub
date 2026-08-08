@@ -36,7 +36,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/");
   }
 
   if (loading) {
@@ -63,6 +63,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
           <nav className="flex items-center gap-4 text-sm text-slate-600">
+            <Link className="rounded-md px-3 py-2 transition hover:bg-slate-100 hover:text-slate-950" href="/">Home</Link>
             <Link className="rounded-md px-3 py-2 transition hover:bg-slate-100 hover:text-slate-950" href="/dashboard">Dashboard</Link>
             <Link className="rounded-md px-3 py-2 transition hover:bg-slate-100 hover:text-slate-950" href="/scan/new">New scan</Link>
             
