@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -188,7 +188,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center mb-12 sm:mb-16">
             <p className="text-[11px] font-bold text-teal-400 uppercase tracking-[0.2em] mb-3">Why SecAgent Hub</p>
-            <h2 className="text-[28px] sm:text-3xl md:text-[46px] font-black text-white tracking-tight max-w-3xl mx-auto leading-tight">Security Scanning That<br/>Tells You What to Do</h2>
+            <h2 className="text-[26px] sm:text-[32px] md:text-[42px] font-black text-white tracking-tight max-w-3xl mx-auto leading-tight">Security Scanning That Tells You What to Do</h2>
             <p className="mt-4 sm:mt-5 text-slate-400 text-[15px] sm:text-[17px] max-w-xl mx-auto leading-relaxed">Most tools produce a wall of findings and leave remediation to you. Our AI agents contextualise risk and deliver precise, actionable guidance.</p>
           </div>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
@@ -216,7 +216,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10 sm:mb-14">
             <div>
               <p className="text-[11px] font-bold text-teal-400 uppercase tracking-[0.2em] mb-3">AI Security Agents</p>
-              <h2 className="text-[28px] sm:text-3xl md:text-[46px] font-black text-white tracking-tight leading-tight">Pick the Expertise<br/>You Need</h2>
+              <h2 className="text-[26px] sm:text-[32px] md:text-[42px] font-black text-white tracking-tight leading-tight">Pick the Expertise You Need</h2>
             </div>
             <p className="text-slate-400 text-[15px] max-w-sm leading-relaxed md:text-right">Each agent is purpose-built for a specific security discipline — run them individually or combine them.</p>
           </div>
@@ -309,8 +309,8 @@ export default function LandingPage() {
       <section className="relative z-10 border-t border-white/[0.05] py-20 sm:py-28 text-center overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-gradient-radial from-teal-500/5 via-transparent to-transparent"/>
         <div className="mx-auto max-w-2xl px-4 sm:px-6 relative">
-          <h2 className="text-[32px] sm:text-4xl md:text-[58px] font-black text-white tracking-tight leading-[1.07]">
-            Audit Your Infrastructure.<br/>
+          <h2 className="text-[30px] sm:text-4xl md:text-[52px] font-black text-white tracking-tight leading-[1.1]">
+            Audit Your Infrastructure —{" "}
             <span className="bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">Before Attackers Do.</span>
           </h2>
           <p className="mt-4 sm:mt-5 text-slate-400 text-[15px] sm:text-[17px] leading-relaxed max-w-lg mx-auto">Upload a Terraform file, run the agents that match your risk profile, and get a comprehensive security report — paid per run, verified on-chain.</p>
