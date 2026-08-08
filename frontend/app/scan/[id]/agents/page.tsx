@@ -58,9 +58,11 @@ export default function AgentPickerPage({ params }: { params: { id: string } }) 
   }
 
   async function resetWallet() {
+    setRunning(false);
+    setMessage("");
     const { resetX402PeraWallet } = await import("@/lib/x402Pera");
     await resetX402PeraWallet();
-    setMessage("Wallet session reset. Click Run Selected Agents again and approve the new Pera request.");
+    setMessage("Wallet session reset. Select your agents and click Run Selected Agents to try again.");
   }
 
   return (

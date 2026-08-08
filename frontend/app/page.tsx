@@ -41,7 +41,6 @@ export default function LandingPage() {
             <a href="#features" className="hover:text-white transition">Features</a>
             <a href="#agents" className="hover:text-white transition">AI Agents</a>
             <a href="#pricing" className="hover:text-white transition">Pricing</a>
-            <a href="https://github.com/lc215640-stack/SecAgentHub" target="_blank" className="hover:text-white transition">GitHub</a>
           </nav>
 
           <div className="flex items-center gap-4">
