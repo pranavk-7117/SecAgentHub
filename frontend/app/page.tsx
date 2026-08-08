@@ -74,6 +74,7 @@ const MOCK_FINDINGS = [
 export default function LandingPage() {
   const [user, setUser] = useState<any>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -110,7 +111,7 @@ export default function LandingPage() {
 
       {/* ── Navbar ── */}
       <header className="sticky top-0 z-50 border-b border-white/[0.05] bg-[#07090f]/80 backdrop-blur-2xl">
-        <div className="mx-auto max-w-7xl flex h-[62px] items-center justify-between px-6">
+        <div className="mx-auto max-w-7xl flex h-[62px] items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5 group">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-teal-400 to-emerald-500 shadow-lg shadow-teal-500/25 transition group-hover:scale-105">
               <ShieldCheck className="h-4 w-4 text-[#07090f]" />
@@ -126,41 +127,70 @@ export default function LandingPage() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {user ? (
               <Link href="/dashboard">
-                <button className="flex items-center gap-1.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-[#07090f] text-[13px] font-bold px-4 py-2 rounded-lg shadow-lg shadow-teal-500/20 transition">
+                <button className="flex items-center gap-1.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-[#07090f] text-[13px] font-bold px-3 sm:px-4 py-2 rounded-lg shadow-lg shadow-teal-500/20 transition">
                   Dashboard <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </Link>
             ) : (
               <>
-                <Link href="/login" className="text-[13px] font-medium text-slate-400 hover:text-white transition">
+                <Link href="/login" className="hidden sm:block text-[13px] font-medium text-slate-400 hover:text-white transition">
                   Sign In
                 </Link>
                 <Link href="/login">
-                  <button className="text-[13px] font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-2 rounded-lg transition backdrop-blur">
+                  <button className="text-[13px] font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-white px-3 sm:px-4 py-2 rounded-lg transition backdrop-blur">
                     Get Started
                   </button>
                 </Link>
               </>
             )}
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileNavOpen(o => !o)}
+              className="md:hidden flex flex-col gap-1.5 p-2 rounded-lg hover:bg-white/5 transition"
+              aria-label="Toggle menu"
+            >
+              <span className={`block h-0.5 w-5 bg-slate-400 transition-all ${mobileNavOpen ? 'rotate-45 translate-y-2' : ''}`} />
+              <span className={`block h-0.5 w-5 bg-slate-400 transition-all ${mobileNavOpen ? 'opacity-0' : ''}`} />
+              <span className={`block h-0.5 w-5 bg-slate-400 transition-all ${mobileNavOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+            </button>
           </div>
         </div>
+        {/* Mobile nav drawer */}
+        {mobileNavOpen && (
+          <div className="md:hidden border-t border-white/[0.05] bg-[#07090f] px-4 py-4 flex flex-col gap-1">
+            {[["#features", "Why Us"], ["#agents", "Agents"], ["#pricing", "Pricing"]].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                onClick={() => setMobileNavOpen(false)}
+                className="px-4 py-3 rounded-xl text-[14px] font-medium text-slate-300 hover:text-white hover:bg-white/5 transition"
+              >
+                {label}
+              </a>
+            ))}
+            <Link href="/login" onClick={() => setMobileNavOpen(false)}
+              className="px-4 py-3 rounded-xl text-[14px] font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              Sign In
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* ── Hero ── */}
-      <section className="relative z-10 mx-auto max-w-7xl px-6 pt-20 pb-8">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pt-14 sm:pt-20 pb-8">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
 
           {/* Left: Copy */}
-          <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-teal-500/25 bg-teal-500/5 px-3.5 py-1.5 text-[11px] font-bold text-teal-400 tracking-widest uppercase">
+          <div className="text-center lg:text-left">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-teal-500/25 bg-teal-500/5 px-3.5 py-1.5 text-[11px] font-bold text-teal-400 tracking-widest uppercase">
               <Shield className="h-3 w-3" />
               AI-Powered · Pay Per Analysis
             </div>
 
-            <h1 className="text-5xl lg:text-[60px] font-black tracking-[-0.03em] text-white leading-[1.06]">
+            <h1 className="text-[38px] sm:text-5xl lg:text-[60px] font-black tracking-[-0.03em] text-white leading-[1.06]">
               Security Agents<br />
               for Cloud{" "}
               <span className="relative whitespace-nowrap">
@@ -170,25 +200,25 @@ export default function LandingPage() {
               </span>
             </h1>
 
-            <p className="mt-5 text-[17px] text-slate-400 max-w-lg leading-relaxed">
+            <p className="mt-4 sm:mt-5 text-[15px] sm:text-[17px] text-slate-400 max-w-lg mx-auto lg:mx-0 leading-relaxed">
               Upload your Terraform configuration, select specialist AI security agents, and get deep infrastructure analysis — paying only per analysis, verified on-chain.
             </p>
 
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <Link href={user ? "/dashboard" : "/login"}>
-                <button className="flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-[#07090f] text-[15px] px-7 py-3.5 font-black rounded-xl shadow-2xl shadow-teal-500/20 transition">
-                  Run a Security Scan <ArrowRight className="h-4.5 w-4.5" />
+            <div className="mt-7 sm:mt-8 flex flex-col sm:flex-row gap-3">
+              <Link href={user ? "/dashboard" : "/login"} className="w-full sm:w-auto">
+                <button className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-[#07090f] text-[15px] px-7 py-3.5 font-black rounded-xl shadow-2xl shadow-teal-500/20 transition">
+                  Run a Security Scan <ArrowRight className="h-4 w-4" />
                 </button>
               </Link>
-              <a href="#agents">
-                <button className="flex items-center justify-center gap-2 border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-slate-300 text-[15px] px-7 py-3.5 font-semibold rounded-xl transition">
+              <a href="#agents" className="w-full sm:w-auto">
+                <button className="w-full sm:w-auto flex items-center justify-center gap-2 border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-slate-300 text-[15px] px-7 py-3.5 font-semibold rounded-xl transition">
                   View Agents
                 </button>
               </a>
             </div>
 
             {/* Trust indicators */}
-            <div className="mt-8 flex items-center gap-5 text-[12px] text-slate-500 font-medium">
+            <div className="mt-6 flex flex-wrap justify-center lg:justify-start items-center gap-x-5 gap-y-2 text-[12px] text-slate-500 font-medium">
               <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-teal-500" />No subscription required</span>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-teal-500" />Results in under a minute</span>
             </div>
@@ -273,20 +303,20 @@ export default function LandingPage() {
         </div>
 
         {/* Stats row */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl">
+        <div className="mt-12 sm:mt-16 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full max-w-4xl">
           {[
             { val: "5", label: "Specialist AI Agents", icon: Cpu },
             { val: "0.20–0.50", label: "USDC per Agent Run", icon: DollarSign },
             { val: "< 60s", label: "Time to Full Report", icon: Activity },
             { val: "100%", label: "On-Chain Verified", icon: Shield },
           ].map(({ val, label, icon: Icon }) => (
-            <div key={label} className="flex items-center gap-3 border border-white/[0.05] bg-white/[0.02] rounded-xl px-4 py-3.5">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-teal-500/10 border border-teal-500/15">
-                <Icon className="h-4 w-4 text-teal-400" />
+            <div key={label} className="flex items-center gap-2.5 sm:gap-3 border border-white/[0.05] bg-white/[0.02] rounded-xl px-3 sm:px-4 py-3 sm:py-3.5">
+              <span className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-lg bg-teal-500/10 border border-teal-500/15">
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-teal-400" />
               </span>
-              <div>
-                <span className="block text-lg font-black text-white leading-none">{val}</span>
-                <span className="block text-[10px] text-slate-500 font-medium mt-0.5">{label}</span>
+              <div className="min-w-0">
+                <span className="block text-base sm:text-lg font-black text-white leading-none truncate">{val}</span>
+                <span className="block text-[9px] sm:text-[10px] text-slate-500 font-medium mt-0.5 leading-tight">{label}</span>
               </div>
             </div>
           ))}
@@ -294,19 +324,19 @@ export default function LandingPage() {
       </section>
 
       {/* ── Why SecAgent Hub ── */}
-      <section id="features" className="relative z-10 border-t border-white/[0.05] py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center mb-16">
+      <section id="features" className="relative z-10 border-t border-white/[0.05] py-16 sm:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="text-center mb-12 sm:mb-16">
             <p className="text-[11px] font-bold text-teal-400 uppercase tracking-[0.2em] mb-3">Why SecAgent Hub</p>
-            <h2 className="text-3xl md:text-[46px] font-black text-white tracking-tight max-w-3xl mx-auto leading-tight">
+            <h2 className="text-[28px] sm:text-3xl md:text-[46px] font-black text-white tracking-tight max-w-3xl mx-auto leading-tight">
               Security Scanning That<br />Tells You What to Do
             </h2>
-            <p className="mt-5 text-slate-400 text-[17px] max-w-xl mx-auto leading-relaxed">
+            <p className="mt-4 sm:mt-5 text-slate-400 text-[15px] sm:text-[17px] max-w-xl mx-auto leading-relaxed">
               Most tools produce a wall of findings and leave remediation to you. Our AI agents contextualise risk and deliver precise, actionable guidance.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-5">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
             {[
               {
                 icon: DollarSign, color: "teal",
@@ -340,12 +370,12 @@ export default function LandingPage() {
       </section>
 
       {/* ── AI Agents ── */}
-      <section id="agents" className="relative z-10 border-t border-white/[0.05] py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-14">
+      <section id="agents" className="relative z-10 border-t border-white/[0.05] py-16 sm:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10 sm:mb-14">
             <div>
               <p className="text-[11px] font-bold text-teal-400 uppercase tracking-[0.2em] mb-3">AI Security Agents</p>
-              <h2 className="text-3xl md:text-[46px] font-black text-white tracking-tight leading-tight">
+              <h2 className="text-[28px] sm:text-3xl md:text-[46px] font-black text-white tracking-tight leading-tight">
                 Pick the Expertise<br />You Need
               </h2>
             </div>
@@ -354,7 +384,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {AGENTS.map(({ icon: Icon, color, badge, name, desc, tags }) => {
               const c = colorMap[color];
               return (
@@ -397,19 +427,20 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ── */}
-      <section id="pricing" className="relative z-10 border-t border-white/[0.05] py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center mb-16">
+      <section id="pricing" className="relative z-10 border-t border-white/[0.05] py-16 sm:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="text-center mb-12 sm:mb-16">
             <p className="text-[11px] font-bold text-teal-400 uppercase tracking-[0.2em] mb-3">Pricing</p>
-            <h2 className="text-3xl md:text-[46px] font-black text-white tracking-tight">
+            <h2 className="text-[28px] sm:text-3xl md:text-[46px] font-black text-white tracking-tight">
               Pay for What You Run
             </h2>
-            <p className="mt-4 text-slate-400 text-[17px] max-w-lg mx-auto">
+            <p className="mt-4 text-slate-400 text-[15px] sm:text-[17px] max-w-lg mx-auto">
               Each agent run is a discrete, on-chain transaction. No recurring charges, no hidden fees.
             </p>
           </div>
 
-          <div className="max-w-2xl mx-auto border border-white/[0.06] rounded-2xl overflow-hidden bg-white/[0.015] mb-10">
+          {/* Desktop pricing table */}
+          <div className="hidden sm:block max-w-2xl mx-auto border border-white/[0.06] rounded-2xl overflow-hidden bg-white/[0.015] mb-10">
             <div className="grid grid-cols-3 text-[10px] font-bold uppercase tracking-widest text-slate-600 bg-white/[0.02] px-5 py-3 border-b border-white/[0.05]">
               <span>Agent</span>
               <span className="text-center">Primary Capability</span>
@@ -432,7 +463,28 @@ export default function LandingPage() {
             })}
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+          {/* Mobile pricing cards */}
+          <div className="sm:hidden max-w-md mx-auto space-y-2 mb-8">
+            {AGENTS.map(({ icon: Icon, color, name, badge, tags }) => {
+              const c = colorMap[color];
+              return (
+                <div key={name} className="flex items-center justify-between px-4 py-3.5 border border-white/[0.06] bg-white/[0.015] rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <span className={`grid h-8 w-8 place-items-center rounded-lg ${c.bg} ${c.text} border ${c.border} shrink-0`}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-[13px] font-semibold text-white">{name}</p>
+                      <p className="text-[11px] text-slate-500">{tags[0]}</p>
+                    </div>
+                  </div>
+                  <span className={`text-[13px] font-bold ${c.text} shrink-0 ml-3`}>{badge}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-3 sm:gap-4 max-w-2xl mx-auto">
             {[
               { icon: CreditCard, title: "Wallet Payments",       desc: "Sign each transaction in Pera Wallet. Every payment includes a unique on-chain note for verification." },
               { icon: Lock,        title: "Results Locked",        desc: "Reports are only unlocked after your transaction is confirmed on-chain — guaranteed by the backend." },
@@ -451,21 +503,21 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="relative z-10 border-t border-white/[0.05] py-28 text-center overflow-hidden">
+      <section className="relative z-10 border-t border-white/[0.05] py-20 sm:py-28 text-center overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-gradient-radial from-teal-500/5 via-transparent to-transparent" />
-        <div className="mx-auto max-w-2xl px-6 relative">
-          <h2 className="text-4xl md:text-[58px] font-black text-white tracking-tight leading-[1.07]">
+        <div className="mx-auto max-w-2xl px-4 sm:px-6 relative">
+          <h2 className="text-[32px] sm:text-4xl md:text-[58px] font-black text-white tracking-tight leading-[1.07]">
             Audit Your Infrastructure.<br />
             <span className="bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">
               Before Attackers Do.
             </span>
           </h2>
-          <p className="mt-5 text-slate-400 text-[17px] leading-relaxed max-w-lg mx-auto">
+          <p className="mt-4 sm:mt-5 text-slate-400 text-[15px] sm:text-[17px] leading-relaxed max-w-lg mx-auto">
             Upload a Terraform file, run the agents that match your risk profile, and get a comprehensive security report — paid per run, verified on-chain.
           </p>
-          <div className="mt-9">
+          <div className="mt-7 sm:mt-9 px-4 sm:px-0">
             <Link href={user ? "/dashboard" : "/login"}>
-              <button className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-[#07090f] text-[15px] px-10 py-4 font-black rounded-xl shadow-2xl shadow-teal-500/20 transition">
+              <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-[#07090f] text-[15px] px-8 sm:px-10 py-4 font-black rounded-xl shadow-2xl shadow-teal-500/20 transition">
                 Run Your First Scan <ArrowRight className="h-5 w-5" />
               </button>
             </Link>
@@ -474,8 +526,8 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="relative z-10 border-t border-white/[0.05] bg-[#060810] py-10">
-        <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-5">
+      <footer className="relative z-10 border-t border-white/[0.05] bg-[#060810] py-8 sm:py-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col items-center gap-5 md:flex-row md:justify-between">
           <div className="flex items-center gap-2.5">
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-teal-400 to-emerald-500">
               <ShieldCheck className="h-3.5 w-3.5 text-[#07090f]" />
@@ -483,7 +535,7 @@ export default function LandingPage() {
             <span className="text-sm font-bold text-slate-300">SecAgent Hub</span>
             <span className="text-xs text-slate-600">&copy; {new Date().getFullYear()}</span>
           </div>
-          <div className="flex items-center gap-6 text-[12px] font-semibold text-slate-500">
+          <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-[12px] font-semibold text-slate-500">
             <a href="#features" className="hover:text-white transition">Features</a>
             <a href="#agents" className="hover:text-white transition">Agents</a>
             <a href="#pricing" className="hover:text-white transition">Pricing</a>
