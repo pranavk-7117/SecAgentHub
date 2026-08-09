@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, FileSearch, Plus, Radar, ShieldAlert, WalletCards, Trash2, Lock } from "lucide-react";
 import { Shell } from "@/components/Shell";
-import { Badge, Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { listScans } from "@/lib/api";
 
 function agentLabel(agentId: string) {
@@ -18,11 +18,15 @@ function agentLabel(agentId: string) {
 
 export default function DashboardPage() {
   const [scans, setScans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadScans(); }, []);
 
   function loadScans() {
-    listScans().then((data) => setScans(data.scans || []));
+    setLoading(true);
+    listScans()
+      .then((data) => setScans(data.scans || []))
+      .finally(() => setLoading(false));
   }
 
   async function handleDelete(scanId: string, filename: string) {
@@ -83,7 +87,21 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          {scans.length ? (
+          {loading ? (
+            <div className="divide-y divide-white/[0.04]">
+              {[0,1,2,3].map(i => (
+                <div key={i} className="flex items-center gap-4 px-5 py-4 animate-pulse">
+                  <div className="h-7 w-7 rounded-lg bg-white/[0.06] shrink-0"/>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3.5 w-48 rounded bg-white/[0.07]"/>
+                    <div className="h-2.5 w-32 rounded bg-white/[0.04]"/>
+                  </div>
+                  <div className="h-5 w-16 rounded-full bg-white/[0.06]"/>
+                  <div className="h-5 w-20 rounded-full bg-white/[0.04]"/>
+                </div>
+              ))}
+            </div>
+          ) : scans.length ? (
             <div className="divide-y divide-white/[0.04]">
               {scans.map((scan) => {
                 const success   = !!scan.agents_run?.length;

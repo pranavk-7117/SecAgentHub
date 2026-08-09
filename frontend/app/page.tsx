@@ -32,7 +32,7 @@ export default function LandingPage() {
   useEffect(() => { supabase.auth.getSession().then(({ data:{session} }) => { if (session) setUser(session.user); }); },[]);
 
   return (
-    <div className="min-h-screen bg-[#07090f] text-slate-100 overflow-x-hidden" style={{fontFamily:"'Inter','system-ui',sans-serif"}}>
+    <div className="min-h-screen bg-[#07090f] text-slate-100" style={{fontFamily:"'Inter','system-ui',sans-serif"}}>
       <div className="pointer-events-none fixed inset-0 z-0" style={{backgroundImage:`linear-gradient(rgba(20,184,166,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,0.03) 1px,transparent 1px)`,backgroundSize:"72px 72px"}}/>
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-teal-500/7 blur-[150px] rounded-full"/>
