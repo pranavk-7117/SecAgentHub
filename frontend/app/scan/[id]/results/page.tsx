@@ -4,7 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-import { AlertTriangle, Brain, Download, MessageSquare, ReceiptText, ShieldCheck, Target, Lock, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Brain,
+  ChevronRight,
+  Download,
+  MessageSquare,
+  ReceiptText,
+  ShieldCheck,
+  Target,
+  Lock,
+  Trash2,
+  Maximize2,
+  GitBranch,
+} from "lucide-react";
 import { RiskGraph } from "@/components/RiskGraph";
 import { Shell } from "@/components/Shell";
 import { API_BASE, askScan, getScan, deleteScan } from "@/lib/api";
@@ -82,34 +95,49 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
 
 
   if (!scan) {
-    return <Shell><Card>Loading scan...</Card></Shell>;
+    return (
+      <Shell>
+        <div style={{ background: "#07090f" }} className="min-h-screen flex items-center justify-center">
+          <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-8 text-slate-400 text-sm">
+            Loading scan…
+          </div>
+        </div>
+      </Shell>
+    );
   }
 
   const compliance = scan.agent_executions?.find((row: any) => row.agent_id === "compliance")?.output_data?.score ?? Math.max(0, 100 - (findings.length * 8));
   const risk = scan.graph?.blast_radius_score ?? 0;
+  const attackPathsCount = scan.graph?.critical_attack_paths?.length ?? 0;
   const executedAgents = (scan.agent_executions || []).filter((row: any) => row.status === "executed" && row.output_data);
   const executedAgentIds = executedAgents.map((row: any) => row.agent_id);
+
+  // Graph stats
+  const nodeCount = scan.graph?.nodes?.length ?? 10;
+  const edgeCount = scan.graph?.edges?.length ?? 16;
 
   if (executedAgents.length === 0) {
     return (
       <Shell>
-        <Card className="max-w-2xl mx-auto my-12 text-center p-8 border-amber-500/20 bg-amber-500/[0.04] backdrop-blur shadow-xl">
-          <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-amber-500/10 border border-amber-500/20">
-            <Lock className="h-8 w-8 text-amber-400" />
+        <div style={{ background: "#07090f" }} className="min-h-screen p-4 md:p-8">
+          <div className="max-w-2xl mx-auto my-12 text-center rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] backdrop-blur shadow-xl p-10">
+            <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-amber-500/10 border border-amber-500/20">
+              <Lock className="h-8 w-8 text-amber-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">Scan Results Locked</h2>
+            <p className="mt-3 text-slate-400">
+              No successful agent executions have been verified for this scan. Select and run at least one agent from the dashboard to unlock findings, remediation guidance, and compliance reports.
+            </p>
+            <div className="mt-6 flex justify-center gap-4">
+              <Link href="/dashboard">
+                <Button>Go to Dashboard</Button>
+              </Link>
+              <Link href={`/scan/${scan.id}/agents`}>
+                <Button className="bg-slate-800 hover:bg-slate-900 text-white border-none">Configure &amp; Pay Agents</Button>
+              </Link>
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-white">Scan Results Locked</h2>
-          <p className="mt-3 text-slate-400">
-            No successful agent executions have been verified for this scan. Select and run at least one agent from the dashboard to unlock findings, remediation guidance, and compliance reports.
-          </p>
-          <div className="mt-6 flex justify-center gap-4">
-            <Link href="/dashboard">
-              <Button>Go to Dashboard</Button>
-            </Link>
-            <Link href={`/scan/${scan.id}/agents`}>
-              <Button className="bg-slate-800 hover:bg-slate-900 text-white border-none">Configure & Pay Agents</Button>
-            </Link>
-          </div>
-        </Card>
+        </div>
       </Shell>
     );
   }
@@ -117,178 +145,367 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
 
   return (
     <Shell>
-      {executedAgents.length === 0 ? (
-        <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/8 p-4 text-sm text-amber-300 shadow-sm flex items-start gap-3">
-          <Lock className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold">Scan Report Locked</span>: No successful agent executions have been verified for this scan. Select and run at least one agent from the dashboard to unlock PDF downloads and full audit compliance records.
-          </div>
-        </div>
-      ) : null}
-      <div className="mb-8 flex flex-col gap-5 rounded-xl border border-white/[0.07] bg-white/[0.04] p-6 shadow-xl shadow-black/30 backdrop-blur md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.05] px-3 py-1 text-xs font-semibold text-slate-400">
-            Scan ID {String(scan.id).slice(0, 8)}
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">{scan.filename}</h1>
-          <p className="mt-2 text-slate-400">Attack graph, agent findings, remediation guidance, and x402 receipts.</p>
-          <div className="mt-4 flex flex-wrap gap-2.5">
-            {executedAgentIds.length ? executedAgentIds.map((agentId: string) => {
-              const exec = scan.agent_executions?.find((e: any) => e.agent_id === agentId);
-              const isMainnet = exec?.network === "mainnet";
-              return (
-                <div key={agentId} className="flex items-center gap-1.5">
-                  <Badge className="bg-teal-50 text-teal-700">{agentLabel(agentId)} used</Badge>
-                  <Badge className={isMainnet ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-sky-50 text-sky-700 border-sky-200"}>
-                    {isMainnet ? "MainNet" : "TestNet"}
-                  </Badge>
-                </div>
-              );
-            }) : <Badge className="bg-slate-100 text-slate-600">No agents executed yet</Badge>}
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {executedAgents.length === 0 ? (
-            <Button disabled className="opacity-50 cursor-not-allowed bg-white/[0.04] border border-white/[0.08] text-slate-500">
-              <Lock className="h-4 w-4 mr-1.5" /> Locked
-            </Button>
-          ) : (
-            <Button onClick={handleDownloadReport} disabled={downloading}>
-              <Download className="h-4 w-4 mr-1.5" /> {downloading ? "Downloading..." : "Download Report"}
-            </Button>
-          )}
-          <Button 
-            onClick={handleDeleteScan} 
-            disabled={deleting}
-            className="border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 font-semibold"
-          >
-            <Trash2 className="h-4 w-4 mr-1.5" /> Delete Scan
-          </Button>
-        </div>
-      </div>
+      <div style={{ background: "#07090f" }} className="min-h-screen px-4 py-6 md:px-8 md:py-8 space-y-6">
 
-      <section className="mb-6 grid gap-4 md:grid-cols-3">
-        <Card className="relative overflow-hidden">
-          <Target className="mb-4 h-5 w-5 text-red-600" />
-          <p className="text-sm font-medium text-slate-500">Overall risk</p>
-          <div className="mt-3 flex items-end justify-between">
-            <p className="text-4xl font-bold text-white">{risk}</p>
-            <Badge className={risk >= 70 ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}>{risk >= 70 ? "Critical" : "Watch"}</Badge>
+        {/* ── HEADER CARD ─────────────────────────────────────────────── */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.04] shadow-2xl shadow-black/40 backdrop-blur">
+          {/* Decorative shield glow (desktop only) */}
+          <div className="pointer-events-none absolute right-0 top-0 hidden h-full w-72 md:block">
+            <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center justify-center">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full bg-teal-500/10 blur-3xl scale-150" />
+                <ShieldCheck className="relative h-32 w-32 text-teal-500/20" strokeWidth={1} />
+              </div>
+            </div>
           </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
-            <div className="h-full rounded-full bg-red-500" style={{ width: `${Math.min(100, risk)}%` }} />
+
+          <div className="relative flex flex-col gap-5 p-6 md:flex-row md:items-start md:justify-between">
+            <div className="flex-1 min-w-0">
+              {/* Scan ID badge */}
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.05] px-3 py-1 text-xs font-semibold text-slate-400 tracking-wide">
+                SCAN ID &nbsp;{String(scan.id).slice(0, 8)}
+              </div>
+              {/* Filename */}
+              <h1 className="text-3xl font-bold tracking-tight text-white truncate">{scan.filename}</h1>
+              <p className="mt-2 text-sm text-slate-400">Attack graph, agent findings, remediation guidance, and x402 receipts.</p>
+              {/* Agent badges */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {executedAgentIds.length
+                  ? executedAgentIds.map((agentId: string) => {
+                      const exec = scan.agent_executions?.find((e: any) => e.agent_id === agentId);
+                      const isMainnet = exec?.network === "mainnet";
+                      return (
+                        <div key={agentId} className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center rounded-full border border-teal-500/30 bg-teal-500/10 px-2.5 py-0.5 text-xs font-semibold text-teal-400">
+                            {agentLabel(agentId)}
+                          </span>
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${isMainnet ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-sky-500/30 bg-sky-500/10 text-sky-400"}`}>
+                            {isMainnet ? "MainNet" : "TestNet"}
+                          </span>
+                        </div>
+                      );
+                    })
+                  : (
+                    <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-slate-400">
+                      No agents executed yet
+                    </span>
+                  )}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex shrink-0 items-center gap-3 self-start">
+              {executedAgents.length === 0 ? (
+                <button
+                  disabled
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm font-medium text-slate-500 opacity-50 cursor-not-allowed"
+                >
+                  <Lock className="h-4 w-4" /> Locked
+                </button>
+              ) : (
+                <button
+                  onClick={handleDownloadReport}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-sm font-semibold text-teal-400 transition hover:bg-teal-500/20 disabled:opacity-60"
+                >
+                  <Download className="h-4 w-4" />
+                  {downloading ? "Downloading…" : "Download Report"}
+                </button>
+              )}
+              <button
+                onClick={handleDeleteScan}
+                disabled={deleting}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/20 disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" />
+                {deleting ? "Deleting…" : "Delete Scan"}
+              </button>
+            </div>
           </div>
-        </Card>
-        <Card>
-          <AlertTriangle className="mb-4 h-5 w-5 text-amber-600" />
-          <p className="text-sm font-medium text-slate-500">Findings</p>
-          <p className="text-4xl font-bold text-white">{scan.findings_summary?.failed_count ?? 0}</p>
-        </Card>
-        <Card>
-          <ShieldCheck className="mb-4 h-5 w-5 text-teal-700" />
-          <p className="text-sm font-medium text-slate-500">Compliance</p>
-          <p className="mt-3 text-4xl font-bold text-white">{compliance}%</p>
-        </Card>
-      </section>
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="h-[580px] overflow-hidden p-0">
-          <RiskGraph graph={scan.graph} />
-        </Card>
-        <Card>
-          <h2 className="mb-2 text-xl font-bold text-white">Critical attack paths</h2>
-          <p className="mb-4 text-sm text-slate-400">Top reachable chains are highlighted in the graph and capped here for triage.</p>
-          <div className="max-h-[455px] space-y-2 overflow-auto pr-2">
-            {(scan.graph?.critical_attack_paths || []).map((path: string[], index: number) => (
-              <div key={index} className="rounded-lg border border-red-500/20 bg-red-500/8 p-3 text-sm font-semibold text-red-300">{path.join(" -> ")}</div>
-            ))}
-            {!scan.graph?.critical_attack_paths?.length ? <p className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4 text-sm font-medium text-emerald-400">No public path detected.</p> : null}
+        </div>
+
+        {/* ── 4 STAT CARDS ─────────────────────────────────────────────── */}
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+          {/* Overall Risk */}
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/[0.05] p-5 shadow-lg shadow-black/20">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/15 border border-red-500/20">
+                <Target className="h-4 w-4 text-red-400" />
+              </div>
+              <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${risk >= 70 ? "border-red-500/30 bg-red-500/10 text-red-400" : "border-amber-500/30 bg-amber-500/10 text-amber-400"}`}>
+                {risk >= 70 ? "Critical" : "Watch"}
+              </span>
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Overall Risk</p>
+            <p className="mt-1 text-4xl font-bold text-white">{risk}</p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="h-full rounded-full bg-gradient-to-r from-red-600 to-red-400 transition-all" style={{ width: `${Math.min(100, risk)}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Severe security issues detected</p>
           </div>
-        </Card>
-      </section>
-      <section className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Findings</h2>
-            <select className="h-9 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 text-sm font-medium text-slate-300" value={severity} onChange={(event) => setSeverity(event.target.value)}>
-              {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((item) => <option key={item}>{item}</option>)}
-            </select>
+
+          {/* Findings */}
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.05] p-5 shadow-lg shadow-black/20">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/15 border border-amber-500/20">
+                <AlertTriangle className="h-4 w-4 text-amber-400" />
+              </div>
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Findings</p>
+            <p className="mt-1 text-4xl font-bold text-white">{scan.findings_summary?.failed_count ?? 0}</p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400" style={{ width: `${Math.min(100, (scan.findings_summary?.failed_count ?? 0) * 5)}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Across attack graph &amp; agents</p>
           </div>
-          <div className="max-h-96 overflow-auto">
-            <Table>
-              <tbody>
-                {findings.map((finding: any, index: number) => (
-                  <tr key={`${finding.check_id}-${index}`} className="border-t border-white/[0.04] align-top transition hover:bg-white/[0.03]">
-                    <td className="py-3">
-                      <div className="flex flex-col gap-1">
-                        <SeverityBadge severity={finding.severity || "LOW"} />
-                        {finding.category ? <Badge className="bg-slate-50 text-slate-600">{finding.category}</Badge> : null}
-                      </div>
-                    </td>
-                    <td className="py-3">
-                      <p className="font-medium text-slate-200">{finding.check_id}</p>
-                      <p className="text-sm text-slate-400">{finding.check_name}</p>
-                    </td>
-                  </tr>
+
+          {/* Compliance */}
+          <div className="rounded-2xl border border-teal-500/20 bg-teal-500/[0.05] p-5 shadow-lg shadow-black/20">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-500/15 border border-teal-500/20">
+                <ShieldCheck className="h-4 w-4 text-teal-400" />
+              </div>
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Compliance</p>
+            <p className="mt-1 text-4xl font-bold text-white">{compliance}%</p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="h-full rounded-full bg-gradient-to-r from-teal-600 to-teal-400" style={{ width: `${Math.min(100, compliance)}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Best practices compliance</p>
+          </div>
+
+          {/* Attack Paths */}
+          <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.05] p-5 shadow-lg shadow-black/20">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15 border border-violet-500/20">
+                <GitBranch className="h-4 w-4 text-violet-400" />
+              </div>
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Attack Paths</p>
+            <p className="mt-1 text-4xl font-bold text-white">{attackPathsCount}</p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-violet-400" style={{ width: `${Math.min(100, attackPathsCount * 20)}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Critical paths identified</p>
+          </div>
+        </section>
+
+        {/* ── ATTACK SURFACE MAP + CRITICAL ATTACK PATHS ──────────────── */}
+        <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+
+          {/* Graph card */}
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] shadow-xl shadow-black/30 overflow-hidden">
+            {/* Header row */}
+            <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
+              <div>
+                <h2 className="text-base font-bold text-white">Attack Surface Map</h2>
+                <p className="text-xs text-slate-500">{nodeCount} resources, {edgeCount} relationships</p>
+              </div>
+              <button className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-white/[0.07] hover:text-white">
+                <Maximize2 className="h-3 w-3" />
+                Fit View
+              </button>
+            </div>
+            <div className="h-[520px]">
+              <RiskGraph graph={scan.graph} />
+            </div>
+          </div>
+
+          {/* Critical Attack Paths card */}
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] shadow-xl shadow-black/30 p-5 flex flex-col">
+            <div className="mb-4">
+              <h2 className="text-base font-bold text-white">Critical Attack Paths</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Top reachable chains highlighted for triage</p>
+            </div>
+            <div className="flex-1 space-y-2.5 overflow-auto pr-1 max-h-[460px]">
+              {(scan.graph?.critical_attack_paths || []).map((path: string[], index: number) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/10"
+                >
+                  <span className="flex-1 min-w-0 truncate">{path.join(" → ")}</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-red-400/50" />
+                </div>
+              ))}
+              {!scan.graph?.critical_attack_paths?.length && (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3.5 text-sm font-medium text-emerald-400">
+                  ✓ No public attack path detected.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ── FINDINGS + AI CHAT ────────────────────────────────────────── */}
+        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+
+          {/* Findings table */}
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] shadow-xl shadow-black/30 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
+              <div>
+                <h2 className="text-base font-bold text-white">Findings</h2>
+                <p className="text-xs text-slate-500">{findings.length} {severity === "ALL" ? "total" : severity.toLowerCase()} issues</p>
+              </div>
+              <select
+                className="h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-xs font-medium text-slate-300 focus:outline-none focus:ring-1 focus:ring-teal-500/50"
+                value={severity}
+                onChange={(event) => setSeverity(event.target.value)}
+              >
+                {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((item) => (
+                  <option key={item} value={item}>
+                    {item === "ALL" ? "All Findings" : item}
+                  </option>
                 ))}
+              </select>
+            </div>
+            <div className="max-h-[420px] overflow-auto">
+              <table className="w-full">
+                <tbody>
+                  {findings.map((finding: any, index: number) => (
+                    <tr
+                      key={`${finding.check_id}-${index}`}
+                      className="group border-t border-white/[0.04] align-middle transition hover:bg-white/[0.03]"
+                    >
+                      <td className="w-36 px-4 py-3">
+                        <div className="flex flex-col gap-1.5">
+                          <SeverityBadge severity={finding.severity || "LOW"} />
+                          {finding.category && (
+                            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                              {finding.category}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <p className="text-sm font-semibold text-slate-200">{finding.check_id}</p>
+                        <p className="mt-0.5 text-xs text-slate-500 leading-snug">{finding.check_name}</p>
+                      </td>
+                      {finding.resource_count != null && (
+                        <td className="py-3 pr-4 text-right">
+                          <span className="text-xs font-medium text-amber-400">
+                            Detected in {finding.resource_count} resource{finding.resource_count !== 1 ? "s" : ""}
+                          </span>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  {findings.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-sm text-slate-500">
+                        No findings for the selected severity.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* AI Remediation Chat */}
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] shadow-xl shadow-black/30 p-5 flex flex-col">
+            <div className="mb-4">
+              <h2 className="flex items-center gap-2 text-base font-bold text-white">
+                <MessageSquare className="h-4 w-4 text-teal-400" />
+                AI Remediation Chat
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">Ask about this scan or any finding.</p>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={question}
+                placeholder="Ask about this scan"
+                onChange={(event) => setQuestion(event.target.value)}
+              />
+              <Button onClick={sendQuestion}>Ask</Button>
+            </div>
+            {answer ? (
+              <div className="mt-4 flex-1 max-h-80 overflow-auto rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 text-sm leading-relaxed text-slate-300 animate-fadeIn">
+                <Markdown content={answer} />
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border border-white/[0.05] bg-white/[0.02] p-4 text-xs text-slate-500">
+                Ask for impact, exploitability, or a Terraform fix for any finding.
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── AGENT ANALYSIS ────────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] shadow-xl shadow-black/30 overflow-hidden">
+          <div className="border-b border-white/[0.06] bg-white/[0.02] px-5 py-4">
+            <h2 className="flex items-center gap-2 text-base font-bold text-white">
+              <Brain className="h-5 w-5 text-teal-400" />
+              Agent Analysis
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">Distinct outputs from the agents you paid for and executed.</p>
+          </div>
+          {executedAgents.length ? (
+            <div className="grid gap-4 p-5 lg:grid-cols-2">
+              {executedAgents.map((execution: any) => (
+                <AgentOutput key={execution.id} execution={execution} />
+              ))}
+            </div>
+          ) : (
+            <div className="m-5 rounded-xl border border-white/[0.05] bg-white/[0.02] p-5 text-sm text-slate-500">
+              No agent output has been executed for this scan yet.
+            </div>
+          )}
+        </div>
+
+        {/* ── PAYMENT RECEIPTS ──────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] shadow-xl shadow-black/30 p-5">
+          <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-white">
+            <ReceiptText className="h-5 w-5 text-teal-400" />
+            Payment Receipts
+          </h2>
+          <div className="overflow-x-auto">
+            <Table>
+              <thead className="text-left text-xs text-slate-500 uppercase tracking-wider">
+                <tr>
+                  <th className="py-2 pr-4">Agent</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Amount</th>
+                  <th className="py-2">Transaction</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(scan.agent_executions || []).map((row: any) => {
+                  const receipt = row.output_data?.x402_receipt || {};
+                  const verifiedBy = receipt.verified_by || (row.tx_hash?.startsWith("mock-") ? "Mock Fallback" : "FastAPI Backend (Direct Indexer)");
+                  return (
+                    <tr key={row.id} className="border-t border-white/[0.04]">
+                      <td className="py-3 pr-4 text-sm font-medium text-slate-200">{agentLabel(row.agent_id)}</td>
+                      <td className="pr-4">
+                        <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="pr-4 text-sm text-slate-400">{row.amount_paid}</td>
+                      <td className="py-3">
+                        <div className="flex flex-col gap-1">
+                          <a
+                            className="font-mono text-xs text-teal-400 break-all hover:text-teal-300"
+                            href={`https://testnet.explorer.perawallet.app/tx/${row.tx_hash}`}
+                            target="_blank"
+                          >
+                            {row.tx_hash}
+                          </a>
+                          <span className="text-[11px] text-slate-500">
+                            Verified by:{" "}
+                            <span className="font-semibold text-teal-400">{verifiedBy}</span>
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </Table>
           </div>
-        </Card>
-        <Card>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-white"><MessageSquare className="h-5 w-5 text-teal-400" /> AI remediation chat</h2>
-          <div className="flex gap-2">
-            <Input value={question} placeholder="Ask about this scan" onChange={(event) => setQuestion(event.target.value)} />
-            <Button onClick={sendQuestion}>Ask</Button>
-          </div>
-          {answer ? (
-            <div className="mt-4 max-h-96 overflow-auto rounded-xl border border-slate-200 bg-slate-50/50 p-5 shadow-inner leading-relaxed animate-fadeIn">
-              <Markdown content={answer} />
-            </div>
-          ) : (
-            <div className="mt-4 rounded-lg bg-white/[0.03] border border-white/[0.06] p-4 text-sm text-slate-500">Ask for impact, exploitability, or a Terraform fix for any finding.</div>
-          )}
-        </Card>
-      </section>
-      <Card className="mt-6 overflow-hidden p-0">
-          <div className="border-b border-white/[0.06] bg-white/[0.03] px-5 py-4">
-            <h2 className="flex items-center gap-2 text-xl font-bold text-white"><Brain className="h-5 w-5 text-teal-400" /> Agent analysis</h2>
-            <p className="mt-1 text-sm text-slate-400">Distinct outputs from the agents you paid for and executed.</p>
-          </div>
-        {executedAgents.length ? (
-          <div className="grid gap-4 p-5 lg:grid-cols-2">
-            {executedAgents.map((execution: any) => (
-              <AgentOutput key={execution.id} execution={execution} />
-            ))}
-          </div>
-        ) : (
-          <div className="m-5 rounded-lg bg-white/[0.03] border border-white/[0.06] p-5 text-sm text-slate-500">No agent output has been executed for this scan yet.</div>
-        )}
-      </Card>
-      <Card className="mt-6">
-        <h2 className="mb-3 flex items-center gap-2 text-xl font-bold text-white"><ReceiptText className="h-5 w-5 text-teal-400" /> Payment receipts</h2>
-        <Table>
-          <thead className="text-left text-slate-500"><tr><th className="py-2">Agent</th><th>Status</th><th>Amount</th><th>Transaction</th></tr></thead>
-          <tbody>
-            {(scan.agent_executions || []).map((row: any) => {
-              const receipt = row.output_data?.x402_receipt || {};
-              const verifiedBy = receipt.verified_by || (row.tx_hash?.startsWith("mock-") ? "Mock Fallback" : "FastAPI Backend (Direct Indexer)");
-              return (
-                <tr key={row.id} className="border-t border-border">
-                  <td className="py-3 font-medium">{agentLabel(row.agent_id)}</td>
-                  <td><Badge className="bg-emerald-50 text-emerald-700">{row.status}</Badge></td>
-                  <td>{row.amount_paid}</td>
-                  <td className="py-3">
-                    <div className="flex flex-col gap-1">
-                      <a className="text-teal-700 font-mono text-xs break-all" href={`https://testnet.explorer.perawallet.app/tx/${row.tx_hash}`} target="_blank">{row.tx_hash}</a>
-                      <span className="text-[11px] text-slate-500 font-medium">Verified by: <span className="text-teal-700 font-semibold">{verifiedBy}</span></span>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      </Card>
+        </div>
+
+      </div>
     </Shell>
   );
 }
@@ -296,13 +513,15 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
 function AgentOutput({ execution }: { execution: any }) {
   const data = execution.output_data || {};
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-teal-200 hover:shadow-md">
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 shadow-sm transition hover:border-teal-500/20 hover:bg-white/[0.05]">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-slate-950">{data.agent || execution.agent_id}</h3>
-          <p className="mt-1 text-sm text-slate-600">{data.summary || "Agent completed analysis."}</p>
+          <h3 className="font-semibold text-slate-100">{data.agent || execution.agent_id}</h3>
+          <p className="mt-1 text-xs text-slate-500">{data.summary || "Agent completed analysis."}</p>
         </div>
-        <Badge className="bg-emerald-50 text-emerald-700">{execution.status}</Badge>
+        <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+          {execution.status}
+        </span>
       </div>
       {execution.agent_id === "misconfiguration" ? <MisconfigurationOutput data={data} /> : null}
       {execution.agent_id === "iam_risk" ? <IamOutput data={data} /> : null}
@@ -317,12 +536,12 @@ function MisconfigurationOutput({ data }: { data: any }) {
   return (
     <div className="space-y-3">
       {(data.exposures || []).map((item: any, index: number) => (
-        <div key={index} className="rounded-md bg-red-50 p-3 text-sm">
-          <div className="font-semibold text-red-800">{item.issue}</div>
-          <div className="mt-1 text-red-700">{item.resource}</div>
+        <div key={index} className="rounded-lg border border-red-500/20 bg-red-500/[0.07] p-3 text-sm">
+          <div className="font-semibold text-red-300">{item.issue}</div>
+          <div className="mt-1 text-red-400/80 text-xs">{item.resource}</div>
         </div>
       ))}
-      <ul className="space-y-2 text-sm text-slate-600">
+      <ul className="space-y-2 text-sm text-slate-400">
         {(data.recommendations || []).map((item: string) => <li key={item}>- {item}</li>)}
       </ul>
     </div>
@@ -333,13 +552,14 @@ function IamOutput({ data }: { data: any }) {
   return (
     <div className="space-y-3 text-sm">
       {(data.risks || []).map((risk: any, index: number) => (
-        <div key={index} className="rounded-md bg-amber-50 p-3">
-          <div className="font-semibold text-amber-800">{risk.type}</div>
-          <div className="mt-1 text-amber-700">{risk.detail}</div>
+        <div key={index} className="rounded-lg border border-amber-500/20 bg-amber-500/[0.07] p-3">
+          <div className="font-semibold text-amber-300">{risk.type}</div>
+          <div className="mt-1 text-amber-400/80 text-xs">{risk.detail}</div>
         </div>
       ))}
-      <div className="rounded-md bg-slate-50 p-3 text-slate-600">
-        <span className="font-semibold text-slate-800">Privilege actions:</span> {(data.privilege_escalation_actions || []).join(", ") || "None detected"}
+      <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-slate-400 text-xs">
+        <span className="font-semibold text-slate-300">Privilege actions:</span>{" "}
+        {(data.privilege_escalation_actions || []).join(", ") || "None detected"}
       </div>
     </div>
   );
@@ -350,17 +570,17 @@ function ComplianceOutput({ data }: { data: any }) {
     <div>
       <div className="mb-4 grid grid-cols-3 gap-2">
         {Object.entries(data.frameworks || {}).map(([name, score]) => (
-          <div key={name} className="rounded-md bg-slate-50 p-3 text-center">
-            <div className="text-lg font-semibold">{String(score)}%</div>
+          <div key={name} className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-center">
+            <div className="text-lg font-semibold text-white">{String(score)}%</div>
             <div className="text-xs text-slate-500">{name}</div>
           </div>
         ))}
       </div>
       <div className="max-h-44 overflow-auto space-y-2">
         {(data.failed_controls || []).map((control: any, index: number) => (
-          <div key={index} className="rounded-md border border-slate-100 p-2 text-sm">
-            <div className="font-semibold">{control.check_id}</div>
-            <div className="text-slate-600">{(control.mapped_frameworks || []).join(", ")}</div>
+          <div key={index} className="rounded-lg border border-white/[0.05] bg-white/[0.02] p-2 text-sm">
+            <div className="font-semibold text-slate-200">{control.check_id}</div>
+            <div className="text-xs text-slate-500">{(control.mapped_frameworks || []).join(", ")}</div>
           </div>
         ))}
       </div>
@@ -373,16 +593,30 @@ function AttackPathOutput({ data }: { data: any }) {
   return (
     <div className="space-y-3">
       {paths.slice(0, 4).map((path: any, index: number) => (
-        <div key={index} className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-900">
+        <div key={index} className="rounded-xl border border-red-500/20 bg-red-500/[0.07] p-3 text-sm text-red-300">
           <div className="mb-2 flex items-center gap-2 font-semibold">
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-red-100 text-xs">{index + 1}</span>
-            <span>{(path.path || []).join(" -> ")}</span>
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-red-500/20 text-xs text-red-400">
+              {index + 1}
+            </span>
+            <span>{(path.path || []).join(" → ")}</span>
           </div>
-          {(path.sequence || []).map((step: any) => <div key={step.step} className="text-red-800">{step.step}. {step.node}</div>)}
+          {(path.sequence || []).map((step: any) => (
+            <div key={step.step} className="text-red-400/70 text-xs">
+              {step.step}. {step.node}
+            </div>
+          ))}
         </div>
       ))}
-      {paths.length > 4 ? <div className="rounded-lg bg-slate-50 p-3 text-sm font-medium text-slate-600">+ {paths.length - 4} additional paths included in the report.</div> : null}
-      {!paths.length ? <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">No public attack path found.</div> : null}
+      {paths.length > 4 ? (
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-xs font-medium text-slate-500">
+          + {paths.length - 4} additional paths included in the report.
+        </div>
+      ) : null}
+      {!paths.length ? (
+        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.07] p-3 text-sm text-emerald-400">
+          No public attack path found.
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -391,8 +625,10 @@ function RemediationOutput({ data }: { data: any }) {
   return (
     <div className="space-y-4">
       <Markdown content={data.explanation} />
-      <pre className="max-h-56 overflow-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100 font-mono">{data.corrected_hcl}</pre>
-      <ol className="space-y-1.5 text-sm text-slate-600 list-decimal pl-5">
+      <pre className="max-h-56 overflow-auto rounded-xl border border-white/[0.07] bg-slate-950 p-3 text-xs text-slate-100 font-mono">
+        {data.corrected_hcl}
+      </pre>
+      <ol className="space-y-1.5 text-sm text-slate-400 list-decimal pl-5">
         {(data.steps || []).map((step: string) => <li key={step}>{step}</li>)}
       </ol>
     </div>
@@ -401,15 +637,19 @@ function RemediationOutput({ data }: { data: any }) {
 
 function SeverityBadge({ severity }: { severity: string }) {
   const upper = severity.toUpperCase();
-  const className =
+  const styles =
     upper === "CRITICAL"
-      ? "bg-red-50 text-red-700 border-red-200"
+      ? "border-red-500/30 bg-red-500/10 text-red-400"
       : upper === "HIGH"
-        ? "bg-amber-50 text-amber-700 border-amber-200"
+        ? "border-orange-500/30 bg-orange-500/10 text-orange-400"
         : upper === "MEDIUM"
-          ? "bg-sky-50 text-sky-700 border-sky-200"
-          : "bg-emerald-50 text-emerald-700 border-emerald-200";
-  return <Badge className={className}>{upper}</Badge>;
+          ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+          : "border-blue-500/30 bg-blue-500/10 text-blue-400";
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${styles}`}>
+      {upper}
+    </span>
+  );
 }
 
 function agentLabel(agentId: string) {

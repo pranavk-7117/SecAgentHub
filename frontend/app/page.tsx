@@ -186,26 +186,156 @@ export default function LandingPage() {
       {/* Features */}
       <section id="features" className="relative z-10 border-t border-white/[0.05] py-16 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          {/* Section header */}
           <div className="text-center mb-12 sm:mb-16">
-            <p className="text-[11px] font-bold text-teal-400 uppercase tracking-[0.2em] mb-3">Why SecAgent Hub</p>
-            <h2 className="text-[26px] sm:text-[32px] md:text-[42px] font-black text-white tracking-tight max-w-3xl mx-auto leading-tight">Security Scanning That Tells You What to Do</h2>
-            <p className="mt-4 sm:mt-5 text-slate-400 text-[15px] sm:text-[17px] max-w-xl mx-auto leading-relaxed">Most tools produce a wall of findings and leave remediation to you. Our AI agents contextualise risk and deliver precise, actionable guidance.</p>
+            <div className="inline-flex items-center gap-2 mb-4">
+              <div className="h-px w-8 bg-teal-500/40"/>
+              <span className="grid h-6 w-6 place-items-center rounded-md bg-teal-500/10 border border-teal-500/20">
+                <ShieldCheck className="h-3.5 w-3.5 text-teal-400"/>
+              </span>
+              <p className="text-[11px] font-bold text-teal-400 uppercase tracking-[0.2em]">Why SecAgent Hub</p>
+              <div className="h-px w-8 bg-teal-500/40"/>
+            </div>
+            <h2 className="text-[28px] sm:text-[36px] md:text-[48px] font-black text-white tracking-tight leading-[1.1]">
+              Security Scanning That Tells You<br/>
+              <span className="bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">What to Do</span>
+            </h2>
+            <p className="mt-4 text-slate-400 text-[15px] max-w-xl mx-auto leading-relaxed">
+              Most tools produce a wall of findings and leave remediation to you. Our AI agents{" "}
+              <span className="text-teal-400 font-medium">contextualise risk</span> and deliver precise,{" "}
+              <span className="text-teal-400 font-medium">actionable guidance.</span>
+            </p>
           </div>
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
-            {[
-              {icon:DollarSign,color:"teal",   title:"Analyse What You Need",    desc:"Choose from five specialised agents and run only the analyses relevant to your threat model. Each agent operates independently — no bundle deals, no wasted spend."},
-              {icon:TrendingUp,color:"violet", title:"AI-Driven Prioritisation", desc:"Our agents rank findings by exploitability and business impact, and tell you exactly what to fix first."},
-              {icon:Network,   color:"emerald",title:"Attack-Path Visibility",   desc:"Understand how vulnerabilities chain together. Graph-based analysis maps realistic attack paths through your infrastructure before threat actors do."},
-            ].map(({icon:Icon,color,title,desc})=>{
-              const c=colorMap[color];
-              return (
-                <div key={title} className="group border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.035] rounded-2xl p-7 transition hover:-translate-y-0.5">
-                  <span className={`grid h-11 w-11 place-items-center rounded-xl ${c.bg} ${c.text} border ${c.border} mb-5`}><Icon className="h-5 w-5"/></span>
-                  <h3 className="text-[17px] font-bold text-white mb-2.5">{title}</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">{desc}</p>
+
+          {/* Two-col: numbered list + scan mockup */}
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Left: numbered feature list */}
+            <div className="space-y-0 divide-y divide-white/[0.05]">
+              {[
+                { n:"01", icon: Cpu,           title:"AI-Powered Specialist Agents",  desc:"Five specialised AI agents analyse your infrastructure like security experts.",      callout:"Expert analysis, every time",  calloutColor:"text-teal-400" },
+                { n:"02", icon: TrendingUp,    title:"Prioritised What Matters Most",  desc:"Findings ranked by exploitability and business impact, so you fix the right issues first.", callout:"Focus on what counts",       calloutColor:"text-violet-400" },
+                { n:"03", icon: Network,       title:"Attack-Path Visibility",         desc:"See how vulnerabilities connect and how attackers could move through your environment.",  callout:"See the bigger picture",      calloutColor:"text-amber-400" },
+                { n:"04", icon: Shield,        title:"Actionable Remediation",         desc:"Get clear, step-by-step fixes mapped to best practices and compliance standards.",         callout:"Fix faster, stay secure",     calloutColor:"text-emerald-400" },
+                { n:"05", icon: DollarSign,    title:"Pay Per Analysis",               desc:"No subscriptions. No hidden costs. Pay only for the analysis you run.",                   callout:"Transparent & flexible",      calloutColor:"text-cyan-400" },
+              ].map(({ n, icon: Icon, title, desc, callout, calloutColor }) => (
+                <div key={n} className="flex items-start gap-4 py-5 group">
+                  <span className="text-[11px] font-black text-slate-600 w-6 shrink-0 pt-1">{n}</span>
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[0.04] border border-white/[0.07] group-hover:border-teal-500/30 group-hover:bg-teal-500/[0.05] transition">
+                    <Icon className="h-5 w-5 text-slate-400 group-hover:text-teal-400 transition"/>
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[15px] font-bold text-white mb-1">{title}</h3>
+                    <p className="text-[13px] text-slate-400 leading-relaxed">{desc}</p>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+                    <CheckCircle2 className="h-4 w-4 text-teal-500/60"/>
+                    <span className={`text-[12px] font-semibold ${calloutColor} whitespace-nowrap`}>{callout}</span>
+                  </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+
+            {/* Right: scan summary mockup */}
+            <div className="relative hidden lg:block">
+              <div className="relative rounded-2xl border border-white/[0.08] bg-[#0d1117] overflow-hidden shadow-2xl">
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-teal-400 to-emerald-500">
+                      <ShieldCheck className="h-3.5 w-3.5 text-[#07090f]"/>
+                    </span>
+                    <span className="text-[14px] font-bold text-white">Security Scan Summary</span>
+                    <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">COMPLETED</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500">Scan ID: 813a...1b7e</span>
+                </div>
+                {/* Stats row */}
+                <div className="grid grid-cols-4 gap-0 border-b border-white/[0.06]">
+                  {[
+                    { label:"Analysis Progress", value:"100%", color:"text-teal-400", sub: <div className="h-1 w-full bg-white/[0.06] rounded-full mt-2"><div className="h-1 w-full bg-teal-500 rounded-full"/></div> },
+                    { label:"High Risk",          value:"2",    color:"text-red-400",  sub: null },
+                    { label:"Medium Risk",         value:"2",    color:"text-amber-400",sub: null },
+                    { label:"Low Risk",            value:"1",    color:"text-emerald-400",sub: null },
+                  ].map(({ label, value, color, sub }) => (
+                    <div key={label} className="px-4 py-4 border-r border-white/[0.05] last:border-0">
+                      <p className="text-[10px] text-slate-500 mb-1.5">{label}</p>
+                      <p className={`text-2xl font-black ${color}`}>{value}</p>
+                      {sub}
+                    </div>
+                  ))}
+                </div>
+                {/* Body: findings + agents */}
+                <div className="grid grid-cols-[1.4fr_1fr] divide-x divide-white/[0.05]">
+                  {/* Findings */}
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[12px] font-bold text-white">Top Findings</span>
+                      <span className="text-[10px] text-teal-400 font-semibold">View Full Report →</span>
+                    </div>
+                    <div className="space-y-2">
+                      {[
+                        { sev:"HIGH",   name:"S3 bucket publicly accessible",       resource:"aws_s3_bucket.assets",           c:"bg-orange-500/15 text-orange-400 border-orange-500/25" },
+                        { sev:"HIGH",   name:"Security group allows 0.0.0.0/0",      resource:"aws_security_group.web",          c:"bg-orange-500/15 text-orange-400 border-orange-500/25" },
+                        { sev:"MEDIUM", name:"IAM role with wildcard permissions",   resource:"aws_iam_role.deploy",             c:"bg-amber-500/15 text-amber-400 border-amber-500/25" },
+                        { sev:"MEDIUM", name:"RDS instance not encrypted at rest",   resource:"aws_db_instance.prod",            c:"bg-amber-500/15 text-amber-400 border-amber-500/25" },
+                        { sev:"LOW",    name:"CloudTrail logging disabled",           resource:"aws_cloudtrail.main",             c:"bg-blue-500/15 text-blue-400 border-blue-500/25" },
+                      ].map(({ sev, name, resource, c }) => (
+                        <div key={name} className="flex items-center gap-2.5 py-1.5">
+                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border shrink-0 ${c}`}>{sev}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-medium text-slate-200 truncate">{name}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{resource}</p>
+                          </div>
+                          <span className="text-slate-600 shrink-0">›</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Right panel */}
+                  <div className="p-4 space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[12px] font-bold text-white">Agents Selected</span>
+                        <span className="text-[10px] text-slate-500">5 Agents</span>
+                      </div>
+                      {["Misconfiguration","IAM Risk","Network Risk","Data Protection","Best Practices"].map(a => (
+                        <div key={a} className="flex items-center gap-1.5 py-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-teal-400 shrink-0"/>
+                          <span className="text-[11px] text-slate-300">{a}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-white/[0.06] pt-3">
+                      <p className="text-[12px] font-bold text-white mb-2">Scan Details</p>
+                      {[
+                        { k:"File Scanned", v:"main.tf" },
+                        { k:"Provider",     v:"AWS" },
+                        { k:"Scan Time",    v:"2 mins 34 secs" },
+                        { k:"Status",       v:"● Completed", vc:"text-emerald-400" },
+                      ].map(({ k, v, vc }) => (
+                        <div key={k} className="flex items-center justify-between py-0.5">
+                          <span className="text-[10px] text-slate-500">{k}</span>
+                          <span className={`text-[10px] font-semibold ${vc || "text-slate-300"}`}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {/* Footer */}
+                <div className="flex items-center justify-between border-t border-white/[0.06] px-4 py-3 bg-white/[0.01]">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-teal-400"/>
+                    <div>
+                      <p className="text-[11px] font-bold text-white">AI Recommendation</p>
+                      <p className="text-[10px] text-slate-500">Address the high risk issues first to reduce your attack surface by 83%.</p>
+                    </div>
+                  </div>
+                  <button className="text-[10px] font-bold text-teal-400 border border-teal-500/25 bg-teal-500/8 px-3 py-1.5 rounded-lg whitespace-nowrap">View Remediation Plan →</button>
+                </div>
+              </div>
+              {/* Glow */}
+              <div className="pointer-events-none absolute -inset-4 bg-teal-500/3 blur-3xl rounded-full -z-10"/>
+            </div>
           </div>
         </div>
       </section>
@@ -309,8 +439,8 @@ export default function LandingPage() {
       <section className="relative z-10 border-t border-white/[0.05] py-20 sm:py-28 text-center overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-gradient-radial from-teal-500/5 via-transparent to-transparent"/>
         <div className="mx-auto max-w-2xl px-4 sm:px-6 relative">
-          <h2 className="text-[30px] sm:text-4xl md:text-[52px] font-black text-white tracking-tight leading-[1.1]">
-            Audit Your Infrastructure —{" "}
+          <h2 className="text-[28px] sm:text-[38px] md:text-[50px] font-black text-white tracking-tight leading-[1.1]">
+            Audit Your Infrastructure.<br/>
             <span className="bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">Before Attackers Do.</span>
           </h2>
           <p className="mt-4 sm:mt-5 text-slate-400 text-[15px] sm:text-[17px] leading-relaxed max-w-lg mx-auto">Upload a Terraform file, run the agents that match your risk profile, and get a comprehensive security report — paid per run, verified on-chain.</p>
