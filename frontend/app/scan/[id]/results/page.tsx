@@ -31,11 +31,22 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   const [severity, setSeverity] = useState("ALL");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [asking, setAsking] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [expandedPaths, setExpandedPaths] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     getScan(params.id).then(setScan);
+    // Fast refresh — poll every 4s until agents have run
+    const timer = setInterval(() => {
+      getScan(params.id).then((data) => {
+        setScan(data);
+        const done = (data?.agent_executions || []).some((e: any) => e.status === "executed");
+        if (done) clearInterval(timer);
+      });
+    }, 4000);
+    return () => clearInterval(timer);
   }, [params.id]);
 
   const findings = useMemo(() => {
@@ -44,9 +55,14 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   }, [scan, severity]);
 
   async function sendQuestion() {
-    if (!question.trim()) return;
-    const result = await askScan(params.id, question);
-    setAnswer(result.answer);
+    if (!question.trim() || asking) return;
+    setAsking(true);
+    try {
+      const result = await askScan(params.id, question);
+      setAnswer(result.answer);
+    } finally {
+      setAsking(false);
+    }
   }
 
   async function handleDeleteScan() {
@@ -97,20 +113,46 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   if (!scan) {
     return (
       <Shell>
-        <div style={{ background: "#07090f" }} className="min-h-screen flex items-center justify-center">
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-8 text-slate-400 text-sm">
-            Loading scan…
+        <div style={{ background: "#07090f" }} className="min-h-screen px-4 py-6 md:px-8 md:py-8 space-y-6">
+          {/* Skeleton header */}
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-6 animate-pulse">
+            <div className="h-4 w-24 rounded-full bg-white/[0.06] mb-4"/>
+            <div className="h-8 w-64 rounded-lg bg-white/[0.08] mb-3"/>
+            <div className="h-3 w-48 rounded bg-white/[0.04]"/>
+          </div>
+          {/* Skeleton stats */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {[0,1,2,3].map(i => (
+              <div key={i} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 animate-pulse">
+                <div className="h-9 w-9 rounded-xl bg-white/[0.06] mb-3"/>
+                <div className="h-3 w-20 rounded bg-white/[0.04] mb-2"/>
+                <div className="h-10 w-16 rounded-lg bg-white/[0.08]"/>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] h-48 animate-pulse flex items-center justify-center">
+            <p className="text-slate-500 text-sm">Loading scan data…</p>
           </div>
         </div>
       </Shell>
     );
   }
 
-  const compliance = scan.agent_executions?.find((row: any) => row.agent_id === "compliance")?.output_data?.score ?? Math.max(0, 100 - (findings.length * 8));
+  const allFindings = scan?.raw_checkov_json?.results?.failed_checks || [];
+  const compliance = scan.agent_executions?.find((row: any) => row.agent_id === "compliance")?.output_data?.score ?? Math.max(0, 100 - (allFindings.length * 8));
   const risk = scan.graph?.blast_radius_score ?? 0;
   const attackPathsCount = scan.graph?.critical_attack_paths?.length ?? 0;
   const executedAgents = (scan.agent_executions || []).filter((row: any) => row.status === "executed" && row.output_data);
   const executedAgentIds = executedAgents.map((row: any) => row.agent_id);
+
+  // Per-agent compliance breakdown
+  const agentComplianceMap: Record<string, { label: string; color: string; covers: string }> = {
+    misconfiguration: { label: "Misconfiguration", color: "text-teal-400",   covers: "CIS AWS, NIST Config" },
+    iam_risk:         { label: "IAM Risk",          color: "text-violet-400", covers: "CIS IAM, NIST AC" },
+    compliance:       { label: "Compliance",        color: "text-emerald-400",covers: "PCI DSS, HIPAA" },
+    attack_path:      { label: "Attack Path",       color: "text-red-400",    covers: "MITRE ATT&CK" },
+    ai_remediation:   { label: "AI Remediation",    color: "text-amber-400",  covers: "NIST IR, CIS RM" },
+  };
 
   // Graph stats
   const nodeCount = scan.graph?.nodes?.length ?? 10;
@@ -147,7 +189,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
     <Shell>
       <div style={{ background: "#07090f" }} className="min-h-screen px-4 py-6 md:px-8 md:py-8 space-y-6">
 
-        {/* ── HEADER CARD ─────────────────────────────────────────────── */}
+        {/* ── HEADER CARD ────────────────────────── */}
         <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.04] shadow-2xl shadow-black/40 backdrop-blur">
           {/* Decorative shield glow (desktop only) */}
           <div className="pointer-events-none absolute right-0 top-0 hidden h-full w-72 md:block">
@@ -224,7 +266,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* ── 4 STAT CARDS ─────────────────────────────────────────────── */}
+        {/* ── COMPLIANCE: AGENT BREAKDOWN ───────────────────────────── */}
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
           {/* Overall Risk */}
@@ -253,26 +295,39 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
               </div>
             </div>
             <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Findings</p>
-            <p className="mt-1 text-4xl font-bold text-white">{scan.findings_summary?.failed_count ?? 0}</p>
+            <p className="mt-1 text-4xl font-bold text-white">{scan.findings_summary?.failed_count ?? allFindings.length}</p>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-              <div className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400" style={{ width: `${Math.min(100, (scan.findings_summary?.failed_count ?? 0) * 5)}%` }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400" style={{ width: `${Math.min(100, (scan.findings_summary?.failed_count ?? allFindings.length) * 5)}%` }} />
             </div>
             <p className="mt-2 text-xs text-slate-500">Across attack graph &amp; agents</p>
           </div>
 
-          {/* Compliance */}
+          {/* Compliance – agent-specific breakdown */}
           <div className="rounded-2xl border border-teal-500/20 bg-teal-500/[0.05] p-5 shadow-lg shadow-black/20">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-500/15 border border-teal-500/20">
                 <ShieldCheck className="h-4 w-4 text-teal-400" />
               </div>
             </div>
             <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Compliance</p>
-            <p className="mt-1 text-4xl font-bold text-white">{compliance}%</p>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+            <p className="mt-1 text-3xl font-bold text-white">{compliance}%</p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
               <div className="h-full rounded-full bg-gradient-to-r from-teal-600 to-teal-400" style={{ width: `${Math.min(100, compliance)}%` }} />
             </div>
-            <p className="mt-2 text-xs text-slate-500">Best practices compliance</p>
+            {/* Agent-specific coverage */}
+            <div className="mt-3 space-y-1">
+              {executedAgentIds.slice(0, 3).map((agentId: string) => {
+                const info = agentComplianceMap[agentId];
+                if (!info) return null;
+                return (
+                  <div key={agentId} className="flex items-center justify-between">
+                    <span className={`text-[10px] font-semibold ${info.color}`}>{info.label}</span>
+                    <span className="text-[10px] text-slate-600">{info.covers}</span>
+                  </div>
+                );
+              })}
+              {executedAgentIds.length === 0 && <p className="text-[10px] text-slate-600">No agents run yet</p>}
+            </div>
           </div>
 
           {/* Attack Paths */}
@@ -292,7 +347,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         </section>
 
         {/* ── ATTACK SURFACE MAP + CRITICAL ATTACK PATHS ──────────────── */}
-        <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <section className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
 
           {/* Graph card */}
           <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] shadow-xl shadow-black/30 overflow-hidden">
@@ -307,27 +362,57 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
                 Fit View
               </button>
             </div>
-            <div className="h-[520px]">
+            <div className="h-[460px] md:h-[520px]">
               <RiskGraph graph={scan.graph} />
             </div>
           </div>
 
           {/* Critical Attack Paths card */}
-          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] shadow-xl shadow-black/30 p-5 flex flex-col">
-            <div className="mb-4">
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] shadow-xl shadow-black/30 flex flex-col overflow-hidden">
+            <div className="border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
               <h2 className="text-base font-bold text-white">Critical Attack Paths</h2>
               <p className="mt-0.5 text-xs text-slate-500">Top reachable chains highlighted for triage</p>
             </div>
-            <div className="flex-1 space-y-2.5 overflow-auto pr-1 max-h-[460px]">
-              {(scan.graph?.critical_attack_paths || []).map((path: string[], index: number) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/10"
-                >
-                  <span className="flex-1 min-w-0 truncate">{path.join(" → ")}</span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-red-400/50" />
-                </div>
-              ))}
+            <div className="flex-1 overflow-auto p-3 space-y-2">
+              {(scan.graph?.critical_attack_paths || []).map((path: string[], index: number) => {
+                const steps = Array.isArray(path) ? path : String(path).split(" → ");
+                const isExpanded = expandedPaths.has(index);
+                const first = steps[0];
+                const last = steps[steps.length - 1];
+                return (
+                  <div
+                    key={index}
+                    onClick={() => setExpandedPaths(prev => {
+                      const next = new Set(prev);
+                      isExpanded ? next.delete(index) : next.add(index);
+                      return next;
+                    })}
+                    className="group cursor-pointer rounded-xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 transition hover:bg-red-500/[0.09] hover:border-red-500/30"
+                  >
+                    {isExpanded ? (
+                      <div className="space-y-1">
+                        {steps.map((step: string, si: number) => (
+                          <div key={si} className="flex items-start gap-2">
+                            <span className="text-[10px] font-bold text-red-400/60 mt-0.5 shrink-0">{String(si + 1).padStart(2, "0")}</span>
+                            <span className="text-xs text-red-300 break-all leading-snug">{step}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-red-300 truncate">{first}</p>
+                          {steps.length > 2 && (
+                            <p className="text-[10px] text-red-400/50 mt-0.5">{steps.length - 2} intermediate steps</p>
+                          )}
+                          <p className="text-xs text-red-400 truncate">{last}</p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-red-400/40 group-hover:text-red-400/70 transition" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {!scan.graph?.critical_attack_paths?.length && (
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3.5 text-sm font-medium text-emerald-400">
                   ✓ No public attack path detected.
@@ -414,18 +499,33 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             <div className="flex gap-2">
               <Input
                 value={question}
-                placeholder="Ask about this scan"
+                placeholder="e.g. impact, exploitability, Terraform fix…"
                 onChange={(event) => setQuestion(event.target.value)}
+                onKeyDown={(e: React.KeyboardEvent) => { if (e.key === "Enter") sendQuestion(); }}
+                className="flex-1"
               />
-              <Button onClick={sendQuestion}>Ask</Button>
+              <button
+                onClick={sendQuestion}
+                disabled={asking || !question.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-sm font-bold text-teal-400 transition hover:bg-teal-500/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              >
+                {asking ? (
+                  <><span className="h-4 w-4 border-2 border-teal-400/30 border-t-teal-400 rounded-full animate-spin"/> Asking…</>
+                ) : "Ask"}
+              </button>
             </div>
             {answer ? (
-              <div className="mt-4 flex-1 max-h-80 overflow-auto rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 text-sm leading-relaxed text-slate-300 animate-fadeIn">
+              <div className="mt-4 flex-1 max-h-80 overflow-auto rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 text-sm leading-relaxed text-slate-300">
                 <Markdown content={answer} />
               </div>
             ) : (
-              <div className="mt-4 rounded-xl border border-white/[0.05] bg-white/[0.02] p-4 text-xs text-slate-500">
-                Ask for impact, exploitability, or a Terraform fix for any finding.
+              <div className="mt-4 rounded-xl border border-white/[0.05] bg-white/[0.02] p-4 text-xs text-slate-500 space-y-2">
+                <p className="font-medium text-slate-400">Try asking:</p>
+                {["What is the blast radius of the IAM misconfiguration?","Give me a Terraform fix for the open security group.","Which finding should I fix first?"].map(q => (
+                  <button key={q} onClick={() => { setQuestion(q); }} className="block text-left w-full text-[11px] text-teal-400/70 hover:text-teal-400 transition truncate">
+                    ↳ {q}
+                  </button>
+                ))}
               </div>
             )}
           </div>

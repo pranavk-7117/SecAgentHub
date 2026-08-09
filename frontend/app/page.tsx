@@ -40,7 +40,7 @@ export default function LandingPage() {
         <div className="absolute bottom-[-5%] left-[-8%] w-[600px] h-[500px] bg-emerald-500/4 blur-[180px] rounded-full"/>
       </div>
 
-      <header className="sticky top-0 z-50 border-b border-white/[0.05] bg-[#07090f]/80 backdrop-blur-2xl">
+      <header className="sticky top-0 z-50 border-b border-white/[0.05] bg-[#07090f]/95 backdrop-blur-2xl">
         <div className="mx-auto max-w-7xl flex h-[62px] items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5 group">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-teal-400 to-emerald-500 shadow-lg shadow-teal-500/25 transition group-hover:scale-105"><ShieldCheck className="h-4 w-4 text-[#07090f]"/></span>
