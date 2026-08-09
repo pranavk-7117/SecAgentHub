@@ -357,10 +357,6 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
                 <h2 className="text-base font-bold text-white">Attack Surface Map</h2>
                 <p className="text-xs text-slate-500">{nodeCount} resources, {edgeCount} relationships</p>
               </div>
-              <button className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-white/[0.07] hover:text-white">
-                <Maximize2 className="h-3 w-3" />
-                Fit View
-              </button>
             </div>
             <div className="h-[460px] md:h-[520px]">
               <RiskGraph graph={scan.graph} />
