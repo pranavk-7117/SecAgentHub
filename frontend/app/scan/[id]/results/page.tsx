@@ -139,20 +139,15 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   }
 
   const allFindings = scan?.raw_checkov_json?.results?.failed_checks || [];
-  const compliance = scan.agent_executions?.find((row: any) => row.agent_id === "compliance")?.output_data?.score ?? Math.max(0, 100 - (allFindings.length * 8));
+  const passedChecks = scan?.raw_checkov_json?.results?.passed_checks || [];
+  const failCount = allFindings.length;
+  const passCount = passedChecks.length;
+  const totalChecks = passCount + failCount;
+  const passRatio = totalChecks > 0 ? Math.round((passCount / totalChecks) * 100) : 0;
   const risk = scan.graph?.blast_radius_score ?? 0;
   const attackPathsCount = scan.graph?.critical_attack_paths?.length ?? 0;
   const executedAgents = (scan.agent_executions || []).filter((row: any) => row.status === "executed" && row.output_data);
   const executedAgentIds = executedAgents.map((row: any) => row.agent_id);
-
-  // Per-agent compliance breakdown
-  const agentComplianceMap: Record<string, { label: string; color: string; covers: string }> = {
-    misconfiguration: { label: "Misconfiguration", color: "text-teal-400",   covers: "CIS AWS, NIST Config" },
-    iam_risk:         { label: "IAM Risk",          color: "text-violet-400", covers: "CIS IAM, NIST AC" },
-    compliance:       { label: "Compliance",        color: "text-emerald-400",covers: "PCI DSS, HIPAA" },
-    attack_path:      { label: "Attack Path",       color: "text-red-400",    covers: "MITRE ATT&CK" },
-    ai_remediation:   { label: "AI Remediation",    color: "text-amber-400",  covers: "NIST IR, CIS RM" },
-  };
 
   // Graph stats
   const nodeCount = scan.graph?.nodes?.length ?? 10;
@@ -302,31 +297,30 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             <p className="mt-2 text-xs text-slate-500">Across attack graph &amp; agents</p>
           </div>
 
-          {/* Compliance – agent-specific breakdown */}
-          <div className="rounded-2xl border border-teal-500/20 bg-teal-500/[0.05] p-5 shadow-lg shadow-black/20">
+          {/* Pass / Fail Ratio */}
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] p-5 shadow-lg shadow-black/20">
             <div className="mb-2 flex items-center justify-between">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-500/15 border border-teal-500/20">
-                <ShieldCheck className="h-4 w-4 text-teal-400" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/20">
+                <ShieldCheck className="h-4 w-4 text-emerald-400" />
               </div>
+              <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${
+                passRatio >= 60
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  : "border-red-500/30 bg-red-500/10 text-red-400"
+              }`}>
+                {passRatio >= 60 ? "Healthy" : "At Risk"}
+              </span>
             </div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Compliance</p>
-            <p className="mt-1 text-3xl font-bold text-white">{compliance}%</p>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-              <div className="h-full rounded-full bg-gradient-to-r from-teal-600 to-teal-400" style={{ width: `${Math.min(100, compliance)}%` }} />
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Pass / Fail Ratio</p>
+            <p className="mt-1 text-3xl font-bold text-white">{passRatio}%</p>
+            {/* Split progress bar: green = pass, red = fail */}
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06] flex">
+              <div className="h-full rounded-l-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all" style={{ width: `${passRatio}%` }} />
+              <div className="h-full rounded-r-full bg-gradient-to-r from-red-600 to-red-400 transition-all" style={{ width: `${100 - passRatio}%` }} />
             </div>
-            {/* Agent-specific coverage */}
-            <div className="mt-3 space-y-1">
-              {executedAgentIds.slice(0, 3).map((agentId: string) => {
-                const info = agentComplianceMap[agentId];
-                if (!info) return null;
-                return (
-                  <div key={agentId} className="flex items-center justify-between">
-                    <span className={`text-[10px] font-semibold ${info.color}`}>{info.label}</span>
-                    <span className="text-[10px] text-slate-600">{info.covers}</span>
-                  </div>
-                );
-              })}
-              {executedAgentIds.length === 0 && <p className="text-[10px] text-slate-600">No agents run yet</p>}
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-emerald-400">{passCount} passed</span>
+              <span className="text-[11px] font-semibold text-red-400">{failCount} failed</span>
             </div>
           </div>
 
