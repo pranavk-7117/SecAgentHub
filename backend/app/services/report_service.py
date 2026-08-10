@@ -26,10 +26,16 @@ def build_pdf(scan: Any, executions: list[Any]) -> bytes:
         pdf.setFont("Helvetica-Bold", 16)
         pdf.drawString(72, y, "SecAgent Hub Security Report")
         y -= 30
+        results_data = scan.raw_checkov_json.get('results') or {}
+        failed_checks = results_data.get('failed_checks', [])
+        passed_checks = results_data.get('passed_checks', [])
+        total_checks = len(failed_checks) + len(passed_checks)
+        pass_ratio = round(len(passed_checks) / max(1, total_checks) * 100)
         for line in [
             f"Scan ID: {scan.id}",
             f"Filename: {scan.filename}",
-            f"Findings: {len((scan.raw_checkov_json.get('results') or {}).get('failed_checks', []))}",
+            f"Failed checks: {len(failed_checks)} / {total_checks} ({100 - pass_ratio}% fail rate)",
+            f"Passed checks: {len(passed_checks)} ({pass_ratio}% pass rate)",
             f"Blast radius score: {scan.graph.get('blast_radius_score', 0)}",
         ]:
             write_line(line, 10)
@@ -39,8 +45,9 @@ def build_pdf(scan: Any, executions: list[Any]) -> bytes:
             write_line(f"{execution.agent_id}: {execution.status} tx={execution.tx_hash}", 9)
         y -= 10
         write_line("Findings", 12, True)
-        for finding in (scan.raw_checkov_json.get("results") or {}).get("failed_checks", [])[:18]:
-            text = f"{finding.get('check_id')} {finding.get('severity')} {finding.get('check_name')}"
+        for finding in failed_checks[:20]:
+            resource = finding.get('resource') or finding.get('file_path') or ''
+            text = f"{finding.get('check_id')} [{finding.get('severity','?')}] {finding.get('check_name')} — {resource}"
             write_line(text, 8)
         y -= 8
         write_line("Agent Analysis", 12, True)

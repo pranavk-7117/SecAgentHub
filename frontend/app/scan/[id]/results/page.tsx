@@ -139,9 +139,10 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   }
 
   const allFindings = scan?.raw_checkov_json?.results?.failed_checks || [];
-  const passedChecks = scan?.raw_checkov_json?.results?.passed_checks || [];
-  const failCount = allFindings.length;
-  const passCount = passedChecks.length;
+  // Use findings_summary (computed fresh by backend) as primary source for pass count
+  // This ensures correctness even for scans saved before the --quiet fix
+  const failCount = scan?.findings_summary?.failed_count ?? allFindings.length;
+  const passCount = scan?.findings_summary?.passed_count ?? (scan?.raw_checkov_json?.results?.passed_checks?.length ?? 0);
   const totalChecks = passCount + failCount;
   const passRatio = totalChecks > 0 ? Math.round((passCount / totalChecks) * 100) : 0;
   const risk = scan.graph?.blast_radius_score ?? 0;
@@ -455,6 +456,9 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
                       <td className="py-3 pr-4">
                         <p className="text-sm font-semibold text-slate-200">{finding.check_id}</p>
                         <p className="mt-0.5 text-xs text-slate-500 leading-snug">{finding.check_name}</p>
+                        {finding.resource && (
+                          <p className="mt-0.5 text-[10px] font-mono text-teal-500/70 truncate">{finding.resource}</p>
+                        )}
                       </td>
                       {finding.resource_count != null && (
                         <td className="py-3 pr-4 text-right">

@@ -14,7 +14,8 @@ def run_checkov(raw_hcl: str, filename: str = "main.tf") -> dict[str, Any]:
         tf_path.write_text(raw_hcl, encoding="utf-8")
         try:
             completed = subprocess.run(
-                [sys.executable, "-m", "checkov.main", "-f", str(tf_path), "-o", "json", "--quiet"],
+                [sys.executable, "-m", "checkov.main", "-f", str(tf_path), "-o", "json",
+                 "--compact"],  # --quiet suppresses passed_checks; use --compact instead
                 check=False,
                 capture_output=True,
                 text=True,
