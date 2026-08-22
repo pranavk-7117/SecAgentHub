@@ -95,19 +95,12 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
         {
             "name": "GoPlausible Facilitator",
             "net": "testnet",
-            "idx_url": "https://testnet-idx.goplausible.xyz",
+            "idx_url": "https://testnet-idx.algonode.cloud",
             "usdc_id": 10458941,
             "primary": True,
         },
         {
-            "name": "Algonode Indexer",
-            "net": "testnet",
-            "idx_url": "https://testnet-idx.algonode.cloud",
-            "usdc_id": 10458941,
-            "primary": False,
-        },
-        {
-            "name": "Algonode Indexer",
+            "name": "Algonode Indexer (MainNet)",
             "net": "mainnet",
             "idx_url": "https://mainnet-idx.algonode.cloud",
             "usdc_id": 31566704,

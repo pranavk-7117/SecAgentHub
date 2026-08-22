@@ -183,13 +183,22 @@ class ResilientGoPlausibleFacilitator {
       try {
         await algod.sendRawTransaction(decoded.signedGroup).do();
       } catch (broadcastError) {
+        // If broadcast throws, check if transaction is already in pool or confirmed on-chain
+        try {
+          const pending = await algod.pendingTransactionInformation(decoded.txId).do();
+          if (pending && (Number(pending["confirmed-round"] || pending["confirmedRound"] || 0) > 0 || !pending["pool-error"])) {
+            alreadyInLedger = true;
+            logToFile("localSettle: tx verified via pendingTransactionInformation: " + decoded.txId);
+          }
+        } catch (checkErr) {}
+
         const msg = broadcastError instanceof Error ? broadcastError.message : String(broadcastError);
-        // If already broadcast (e.g. by the x402 SDK client before our server received it), treat as success
         if (
+          alreadyInLedger ||
           msg.toLowerCase().includes("already in ledger") ||
           msg.toLowerCase().includes("already committed") ||
           msg.toLowerCase().includes("transaction already in pool") ||
-          msg.toLowerCase().includes("overspend") === false && msg.toLowerCase().includes("already")
+          (msg.toLowerCase().includes("overspend") === false && msg.toLowerCase().includes("already"))
         ) {
           alreadyInLedger = true;
           logToFile("localSettle: tx already in ledger, waiting for confirmation: " + decoded.txId);
