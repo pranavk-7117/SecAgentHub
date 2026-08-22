@@ -60,6 +60,7 @@ jobs:
         id: gate_eval
         env:
           SECAGENT_API_URL: ${{ secrets.SECAGENT_API_URL }}
+          SECAGENT_WEB_URL: ${{ secrets.SECAGENT_WEB_URL }}
           SECAGENT_API_KEY: ${{ secrets.SECAGENT_API_KEY }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_HEAD_REF: ${{ github.head_ref || github.ref_name }}
