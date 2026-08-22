@@ -1,0 +1,74 @@
+﻿@import "@xyflow/react/dist/style.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Dark theme (default) ───────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --background: 222 34% 9%;
+  --foreground: 210 20% 98%;
+  --muted: 217 33% 17%;
+  --accent: 174 68% 45%;
+  --border: 217 33% 17%;
+  --destructive: 0 72% 50%;
+
+  --bg-base: #07090f;
+  --bg-header: rgba(7, 9, 15, 0.85);
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --bg-card-hover: rgba(255, 255, 255, 0.05);
+  --border-card: rgba(255, 255, 255, 0.07);
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+  --grid-line: rgba(20, 184, 166, 0.025);
+  --scrollbar: #334155;
+}
+
+/* ── Light theme ─────────────────────────────────────── */
+[data-theme="light"] {
+  --background: 210 24% 97%;
+  --foreground: 222 34% 9%;
+  --muted: 214 22% 92%;
+  --accent: 174 68% 35%;
+  --border: 214 18% 84%;
+  --destructive: 0 72% 50%;
+
+  --bg-base: #f0f4f8;
+  --bg-header: rgba(248, 250, 252, 0.92);
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-hover: rgba(255, 255, 255, 0.95);
+  --border-card: rgba(0, 0, 0, 0.08);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --grid-line: rgba(20, 184, 166, 0.06);
+  --scrollbar: #94a3b8;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* React Flow nodes */
+.react-flow__node {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-size: 12px;
+  box-shadow: none;
+}
+.react-flow__attribution { display: none; }
+.react-flow__controls {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+}
+.react-flow__controls-button { border-color: hsl(var(--border)); }
+
+* { scrollbar-color: var(--scrollbar) transparent; }
+::selection { background: rgba(20, 184, 166, 0.22); }

@@ -1,0 +1,58 @@
+name: SecAgent Security Gate
+
+on:
+  pull_request:
+    paths:
+      - '**.tf'
+      - 'backend/**'
+      - 'tests/terraform/**'
+
+jobs:
+  security-gate:
+    name: Cloud Security Gate
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install checkov pytest
+
+      - name: Find changed Terraform files
+        id: tf_files
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '\.tf$' || echo "")
+          echo "files=$CHANGED" >> $GITHUB_OUTPUT
+          if [ -z "$CHANGED" ]; then
+            echo "No Terraform changes detected."
+          fi
+
+      - name: Run Security Gate on changed files
+        id: gate
+        run: |
+          cd backend
+          python -m pytest tests/test_security_gate.py -v --tb=short
+        continue-on-error: true
+
+      - name: Run Checkov on Terraform test cases
+        run: |
+          checkov -d tests/terraform --output json --quiet > /tmp/checkov_results.json 2>/dev/null || true
+          python backend/scripts/evaluate_gate.py /tmp/checkov_results.json
+
+      - name: Security Gate Summary
+        run: |
+          cat /tmp/gate_result.txt || echo "No gate result produced"
+
+      - name: Block on critical violations
+        run: |
+          EXIT_CODE=$(cat /tmp/gate_exit_code.txt 2>/dev/null || echo "0")
+          exit $EXIT_CODE

@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: secagent
+      POSTGRES_PASSWORD: secagent
+      POSTGRES_DB: secagent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/local-auth.sql:/docker-entrypoint-initdb.d/00-local-auth.sql:ro
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env.example
+    environment:
+      ALLOW_MOCK_PAYMENTS: "true"
+      DATABASE_URL: postgresql://secagent:secagent@postgres:5432/secagent
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+
+  frontend:
+    build: ./frontend
+    env_file:
+      - ./frontend/.env.example
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres-data:
