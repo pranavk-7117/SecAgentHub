@@ -16,6 +16,7 @@ from app.services.parser_service import parse_terraform
 from app.services.report_service import build_pdf
 from app.services.scanner_service import run_checkov, summarize_findings
 from app.x402_middleware import inspect_algorand_payment, payment_quote, require_agent_payments
+from app.twin_routes import router as twin_router
 
 app = FastAPI(title="SecAgent Hub API", version="0.1.0")
 app.add_middleware(
@@ -25,6 +26,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(twin_router, prefix="/api/v1/twin", tags=["twin"])
 
 
 def get_current_user_id(authorization: str | None = Header(None)) -> str:
