@@ -132,9 +132,23 @@ async def evaluate_cicd_security_gate(
     verdict = sec_gate.get("verdict", "PASS")
     reasons = list(sec_gate.get("reasons", []))
 
+    critical_attack_paths_count = len(pr_graph.get("critical_attack_paths", []))
+    attack_paths_count = len(pr_graph.get("attack_paths", []))
+    risk_score = pr_graph.get("blast_radius_score", 0)
+
+    if critical_attack_paths_count > 0 or attack_paths_count > 0:
+        verdict = "BLOCK"
+        if not reasons:
+            reasons.append(f"{max(critical_attack_paths_count, attack_paths_count)} critical attack path(s) detected to cloud assets")
+
+    if risk_score >= 60:
+        verdict = "BLOCK"
+        if not any("blast" in r.lower() or "risk" in r.lower() for r in reasons):
+            reasons.append(f"Blast radius risk score ({risk_score}/100) exceeds safety threshold")
+
     # If base comparison indicates newly introduced attack paths or critical increase
     if base_comparison and not base_comparison.get("error"):
-        if base_comparison.get("new_attack_paths", 0) > 0 and verdict == "PASS":
+        if base_comparison.get("new_attack_paths", 0) > 0:
             verdict = "BLOCK"
             reasons.append(f"{base_comparison['new_attack_paths']} new critical attack path(s) introduced by this PR")
 
