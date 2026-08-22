@@ -68,29 +68,51 @@ async def require_agent_payments(
 
 
 async def _verify_with_goplausible_facilitator(tx_id: str, amount: int, challenge: str) -> dict[str, Any] | None:
-    try:
-        import urllib.request
-        import json
-        payload = json.dumps({"tx_id": tx_id, "amount": amount, "challenge": challenge}).encode("utf-8")
-        req = urllib.request.Request(
-            "https://api.goplausible.com/v1/x402/verify",
-            data=payload,
-            headers={"Content-Type": "application/json", "User-Agent": "SecAgentHub/1.0"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if data.get("verified") or data.get("ok"):
-                return {
-                    "ok": True,
-                    "reason": "payment verified via GoPlausible x402 Facilitator",
-                    "tx_id": tx_id,
-                    "network": data.get("network", "testnet"),
-                    "verified_by": "GoPlausible x402 Facilitator",
-                }
-    except Exception:
-        pass
+    settings = get_settings()
+    endpoints = [
+        "https://facilitator.goplausible.xyz/verify",
+        "https://facilitator.goplausible.xyz/api/v1/verify",
+    ]
+    payloads = [
+        {
+            "paymentHeader": f"x402 {tx_id}",
+            "paymentRequirements": {
+                "scheme": "algorand",
+                "network": settings.algorand_network or "testnet",
+                "payTo": settings.facilitator_address,
+                "price": amount,
+                "asset": settings.usdc_asa_id or 10458941,
+            },
+        },
+        {"tx_id": tx_id, "amount": amount, "challenge": challenge},
+    ]
+
+    for endpoint in endpoints:
+        for p in payloads:
+            try:
+                import json
+                import urllib.request
+                data_bytes = json.dumps(p).encode("utf-8")
+                req = urllib.request.Request(
+                    endpoint,
+                    data=data_bytes,
+                    headers={"Content-Type": "application/json", "User-Agent": "SecAgentHub/1.0"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    res_body = json.loads(resp.read().decode("utf-8"))
+                    if resp.status in (200, 201) or res_body.get("valid") or res_body.get("verified") or res_body.get("ok"):
+                        return {
+                            "ok": True,
+                            "reason": "payment verified via GoPlausible x402 Facilitator",
+                            "tx_id": tx_id,
+                            "network": res_body.get("network", "testnet"),
+                            "verified_by": "GoPlausible x402 Facilitator",
+                        }
+            except Exception:
+                continue
     return None
+
 
 
 async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> dict[str, object]:
