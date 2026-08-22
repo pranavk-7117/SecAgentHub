@@ -42,10 +42,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   const navLinks = [
-    { href: "/",          label: "Home",       icon: Home },
-    { href: "/dashboard", label: "Dashboard",  icon: LayoutDashboard },
-    { href: "/scan/new",  label: "New Scan",   icon: Plus },
+    { href: "/",          label: "Home",             icon: Home },
+    { href: "/dashboard", label: "Dashboard",        icon: LayoutDashboard },
+    { href: "/scan/new",  label: "Scan Infrastructure", icon: Plus },
   ];
+
 
 
   return (
