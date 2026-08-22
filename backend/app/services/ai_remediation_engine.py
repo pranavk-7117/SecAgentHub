@@ -368,31 +368,47 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str | None:
     if not settings.groq_api_key:
         return None
 
-    try:
-        payload = json.dumps({
-            "model": "llama-3.3-70b-versatile",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": 0.15,
-            "max_tokens": 4096,
-            "response_format": {"type": "json_object"},
-        }).encode("utf-8")
+    models = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-70b-versatile",
+        "llama-3.1-8b-instant",
+        "llama3-70b-8192",
+        "mixtral-8x7b-32768",
+    ]
+    for model in models:
+        try:
+            payload = json.dumps({
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": 0.15,
+                "max_tokens": 4096,
+                "response_format": {"type": "json_object"},
+            }).encode("utf-8")
 
-        request = urllib.request.Request(
-            "https://api.groq.com/openai/v1/chat/completions",
-            data=payload,
-            headers={
-                "Authorization": f"Bearer {settings.groq_api_key}",
-                "Content-Type": "application/json",
-                "User-Agent": "SecAgentHub/2.0-ai-proof-of-fix",
-            },
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=60) as response:
-            completion = json.loads(response.read().decode("utf-8"))
+            request = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "SecAgentHub/2.0-ai-proof-of-fix",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=30) as response:
+                completion = json.loads(response.read().decode("utf-8"))
 
-        return completion["choices"][0]["message"]["content"] or None
-    except (urllib.error.HTTPError, urllib.error.URLError, KeyError, IndexError, json.JSONDecodeError):
-        return None
+            content = completion["choices"][0]["message"]["content"]
+            if content:
+                return content
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                continue
+            break
+        except Exception:
+            continue
+
+    return None

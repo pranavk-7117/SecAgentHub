@@ -186,33 +186,49 @@ def _frameworks_for(finding: dict[str, Any]) -> list[str]:
 def _groq_or_fallback(prompt: str, system: str) -> str:
     settings = get_settings()
     if settings.groq_api_key:
-        try:
-            payload = json.dumps(
-                {
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-                    "temperature": 0.2,
-                }
-            ).encode("utf-8")
-            request = urllib.request.Request(
-                "https://api.groq.com/openai/v1/chat/completions",
-                data=payload,
-                headers={
-                    "Authorization": f"Bearer {settings.groq_api_key}",
-                    "Content-Type": "application/json",
-                    "User-Agent": "SecAgentHub/1.0",
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(request, timeout=45) as response:
-                completion = json.loads(response.read().decode("utf-8"))
-            return completion["choices"][0]["message"]["content"] or ""
-        except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")[:500]
-            return f"Groq request failed, using local guidance. HTTP {exc.code}: {body}"
-        except (urllib.error.URLError, KeyError, IndexError, json.JSONDecodeError) as exc:
-            return f"Groq request failed, using local guidance. Error: {exc}"
-    return "Local guidance: restrict public ingress, remove wildcard IAM permissions, enable encryption, and rerun static analysis before deployment."
+        models = [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-70b-versatile",
+            "llama-3.1-8b-instant",
+            "llama3-70b-8192",
+            "mixtral-8x7b-32768",
+        ]
+        for model in models:
+            try:
+                payload = json.dumps(
+                    {
+                        "model": model,
+                        "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+                        "temperature": 0.2,
+                    }
+                ).encode("utf-8")
+                request = urllib.request.Request(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    data=payload,
+                    headers={
+                        "Authorization": f"Bearer {settings.groq_api_key}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "SecAgentHub/1.0",
+                    },
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    completion = json.loads(response.read().decode("utf-8"))
+                content = completion["choices"][0]["message"]["content"]
+                if content:
+                    return content
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    continue  # Try next model if model not found
+                break
+            except Exception:
+                continue
+
+    return (
+        "Security Guidance: 1) Restrict open security group ingress (0.0.0.0/0) to internal VPC CIDRs (10.0.0.0/16). "
+        "2) Scope IAM role policies from wildcard permissions ('*') to least-privilege specific resource ARNs. "
+        "3) Enforce AES256 server-side encryption and block public ACLs on S3 storage buckets."
+    )
 
 
 def _fallback_hcl(raw_hcl: str) -> str:
