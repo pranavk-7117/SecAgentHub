@@ -6,11 +6,13 @@ export const dynamic = "force-dynamic";
 const rawCandidates = [
   process.env.BACKEND_API_BASE,
   process.env.NEXT_PUBLIC_API_BASE_URL,
+  "https://secagent-hub-api-production-39fc.up.railway.app",
   "http://127.0.0.1:8012",
   "http://127.0.0.1:8011",
   "http://127.0.0.1:8010",
   "http://127.0.0.1:8000"
 ].filter(Boolean) as string[];
+
 
 const BACKEND_CANDIDATES = rawCandidates.map(url => {
   let trimmed = url.trim().replace(/\/+$/, "");

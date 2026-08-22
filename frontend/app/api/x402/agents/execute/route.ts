@@ -19,8 +19,8 @@ const AGENT_PRICES_MICRO_USDC: Record<string, number> = {
 
 const X402_NETWORK = (process.env.X402_NETWORK || "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=") as Network;
 const FACILITATOR_URL = process.env.X402_FACILITATOR_URL || "https://facilitator.goplausible.xyz";
-const PAY_TO = process.env.NEXT_PUBLIC_FACILITATOR_ADDRESS || "";
-const API_BASE = process.env.BACKEND_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+const PAY_TO = process.env.NEXT_PUBLIC_FACILITATOR_ADDRESS || "2657H2Q5B7N34P574Y2XUODR6L2N3W53U3BQQJGY4I5D6K6N6Y6P4T5X7A";
+const API_BASE = process.env.BACKEND_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL || "https://secagent-hub-api-production-39fc.up.railway.app";
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || "";
 const ALGOD_URL = process.env.NEXT_PUBLIC_ALGOD_NODE_URL || "https://testnet-api.algonode.cloud";
 const ALGOD_TOKEN = process.env.NEXT_PUBLIC_ALGOD_TOKEN || "";
