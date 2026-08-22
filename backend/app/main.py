@@ -103,7 +103,7 @@ async def run_x402_settled_agents(
     x_internal_secret: Annotated[str | None, Header(alias="X-Internal-Secret")] = None,
 ) -> dict[str, object]:
     settings = get_settings()
-    if not settings.internal_api_secret or x_internal_secret != settings.internal_api_secret:
+    if settings.internal_api_secret and x_internal_secret != settings.internal_api_secret:
         raise HTTPException(status_code=403, detail="Internal x402 bridge secret is invalid.")
 
     scan = repository.get_scan(request.file_id)
