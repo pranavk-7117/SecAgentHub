@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     algod_node_url: str = ""
     algod_token: str = ""
     indexer_url: str = ""
-    usdc_asa_id: int = 0
+    usdc_asa_id: int = 10458941  # TestNet USDC ASA ID — overridden by USDC_ASA_ID env var
     facilitator_address: str = "PT6VVN7OZ3TVISZ6C6AMQKS2LFLKPI5FFY5L5WCMZO4WKCIZL735ZNUWXU"
     facilitator_mnemonic: str = ""
     groq_api_key: str = ""

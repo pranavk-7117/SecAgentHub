@@ -9,12 +9,13 @@ import { decodeSignedTransaction } from "@algorandfoundation/algokit-utils/trans
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Prices in micro-USDC — must match backend agent_service.py price_in_microalgos
 const AGENT_PRICES_MICRO_USDC: Record<string, number> = {
-  misconfiguration: 250000,
-  iam_risk: 300000,
-  compliance: 200000,
-  attack_path: 350000,
-  ai_remediation: 500000
+  misconfiguration: 10000,
+  iam_risk: 10000,
+  compliance: 10000,
+  attack_path: 10000,
+  ai_remediation: 10000
 };
 
 const X402_NETWORK = (process.env.X402_NETWORK || "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=") as Network;
@@ -25,50 +26,48 @@ const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || "";
 const ALGOD_URL = process.env.NEXT_PUBLIC_ALGOD_NODE_URL || "https://testnet-api.algonode.cloud";
 const ALGOD_TOKEN = process.env.NEXT_PUBLIC_ALGOD_TOKEN || "";
 
-let serverPromise: Promise<x402HTTPResourceServer> | undefined;
-
-function getX402Server() {
-  if (!serverPromise) {
-    const facilitatorClient = new ResilientGoPlausibleFacilitator({ url: FACILITATOR_URL }, X402_NETWORK);
-    const resourceServer = new x402ResourceServer(facilitatorClient).register(X402_NETWORK, new ExactAvmScheme());
-    const httpServer = new x402HTTPResourceServer(resourceServer, {
-      "POST /api/x402/agents/execute": {
-        accepts: {
-          scheme: "exact",
+// Do NOT cache serverPromise at module level — Vercel serverless cold starts can stale it.
+// Create a fresh server per request instead.
+async function getX402Server(): Promise<x402HTTPResourceServer> {
+  const facilitatorClient = new ResilientGoPlausibleFacilitator({ url: FACILITATOR_URL }, X402_NETWORK);
+  const resourceServer = new x402ResourceServer(facilitatorClient).register(X402_NETWORK, new ExactAvmScheme());
+  const httpServer = new x402HTTPResourceServer(resourceServer, {
+    "POST /api/x402/agents/execute": {
+      accepts: {
+        scheme: "exact",
+        network: X402_NETWORK,
+        payTo: PAY_TO,
+        price: ({ adapter }) => formatUsdPrice(totalMicroUsdc(adapter.getBody?.())),
+        maxTimeoutSeconds: 180,
+        extra: { settlementAsset: "USDC ASA", businessModel: "pay-per-agent-call" }
+      },
+      description: "Pay-per-use Terraform security agent execution",
+      mimeType: "application/json",
+      unpaidResponseBody: ({ adapter }) => ({
+        contentType: "application/json",
+        body: {
+          error: "x402_payment_required",
+          message: "Pay once for this selected agent run. Retry with PAYMENT-SIGNATURE after signing.",
+          pricing_model: "pay-per-use",
+          paying_user_use_case: "Security teams pay per Terraform agent analysis instead of buying a subscription.",
+          facilitator: FACILITATOR_URL,
           network: X402_NETWORK,
-          payTo: PAY_TO,
-          price: ({ adapter }) => formatUsdPrice(totalMicroUsdc(adapter.getBody?.())),
-          maxTimeoutSeconds: 180,
-          extra: { settlementAsset: "USDC ASA", businessModel: "pay-per-agent-call" }
-        },
-        description: "Pay-per-use Terraform security agent execution",
-        mimeType: "application/json",
-        unpaidResponseBody: ({ adapter }) => ({
-          contentType: "application/json",
-          body: {
-            error: "x402_payment_required",
-            message: "Pay once for this selected agent run. Retry with PAYMENT-SIGNATURE after signing.",
-            pricing_model: "pay-per-use",
-            paying_user_use_case: "Security teams pay per Terraform agent analysis instead of buying a subscription.",
-            facilitator: FACILITATOR_URL,
-            network: X402_NETWORK,
-            amount_micro_usdc: totalMicroUsdc(adapter.getBody?.())
-          }
-        }),
-        settlementFailedResponseBody: (_context, failure) => ({
-          contentType: "application/json",
-          body: {
-            error: "x402_settlement_failed",
-            reason: failure.errorReason,
-            transaction: failure.transaction || null,
-            facilitator: FACILITATOR_URL
-          }
-        })
-      }
-    });
-    serverPromise = httpServer.initialize().then(() => httpServer);
-  }
-  return serverPromise;
+          amount_micro_usdc: totalMicroUsdc(adapter.getBody?.())
+        }
+      }),
+      settlementFailedResponseBody: (_context, failure) => ({
+        contentType: "application/json",
+        body: {
+          error: "x402_settlement_failed",
+          reason: failure.errorReason,
+          transaction: failure.transaction || null,
+          facilitator: FACILITATOR_URL
+        }
+      })
+    }
+  });
+  await httpServer.initialize();
+  return httpServer;
 }
 
 class ResilientGoPlausibleFacilitator {
@@ -78,8 +77,17 @@ class ResilientGoPlausibleFacilitator {
     this.client = new HTTPFacilitatorClient(config);
   }
 
-  verify(paymentPayload: PaymentPayload, paymentRequirements: PaymentRequirements): Promise<VerifyResponse> {
-    return this.client.verify(paymentPayload, paymentRequirements).catch(() => this.localVerify(paymentPayload, paymentRequirements));
+  async verify(paymentPayload: PaymentPayload, paymentRequirements: PaymentRequirements): Promise<VerifyResponse> {
+    try {
+      const res = await this.client.verify(paymentPayload, paymentRequirements);
+      logToFile("✅ GoPlausible verify SUCCESS: " + JSON.stringify(res));
+      return res;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      const cause = error && (error as any).cause ? JSON.stringify((error as any).cause) : "none";
+      logToFile("⚠️ GoPlausible verify FAILED — falling back to localVerify. Error: " + msg + " | Cause: " + cause);
+      return this.localVerify(paymentPayload, paymentRequirements);
+    }
   }
 
   async settle(paymentPayload: PaymentPayload, paymentRequirements: PaymentRequirements): Promise<SettleResponse> {

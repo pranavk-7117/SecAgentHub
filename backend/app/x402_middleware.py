@@ -122,6 +122,7 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
         net = tier["net"]
         usdc_id = tier["usdc_id"]
         verified_by = f"{tier['name']} ({'primary' if tier['primary'] else 'fallback'})"
+        tier_failed_reason: str | None = None
 
         max_attempts = 5 if tier["primary"] else 3
         for attempt in range(max_attempts):
@@ -141,6 +142,7 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
                     continue
 
                 if not transfer:
+                    tier_failed_reason = f"[{verified_by}] tx {tx_id} has no asset-transfer-transaction (tx type: {tx.get('tx-type')})"
                     break
 
                 observed_receiver = transfer.get("receiver")
@@ -149,12 +151,15 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
 
                 expected_receiver = settings.facilitator_address
                 if expected_receiver and observed_receiver != expected_receiver:
+                    tier_failed_reason = f"[{verified_by}] receiver mismatch: expected={expected_receiver}, observed={observed_receiver}"
                     break
 
                 if observed_asset != usdc_id:
+                    tier_failed_reason = f"[{verified_by}] asset mismatch: expected={usdc_id}, observed={observed_asset}"
                     break
 
                 if observed_amount < amount:
+                    tier_failed_reason = f"[{verified_by}] amount too low: expected>={amount}, observed={observed_amount}"
                     break
 
                 note_str = str(note)
@@ -163,6 +168,7 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
                     parts = challenge.split(":")
                     if not any(p in note_str for p in parts if len(p) > 3):
                         if "secagent" not in note_str.lower() and "x402" not in note_str.lower():
+                            tier_failed_reason = f"[{verified_by}] challenge mismatch: expected={challenge}, note={note_str[:100]}"
                             break
 
                 return {
@@ -177,12 +183,14 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
                 last_error = exc
                 await asyncio.sleep(0.5)
 
+        if tier_failed_reason:
+            last_error = tier_failed_reason
+
     return {
         "ok": False,
-        "reason": f"payment could not be verified via GoPlausible or Algonode indexer. Last error: {last_error}",
+        "reason": f"payment could not be verified via GoPlausible or Algonode indexer. Last failure: {last_error}",
         "tx_id": tx_id,
     }
-
 
 
 def _extract_tx_id(authorization: str | None, proof: str | None) -> str | None:
