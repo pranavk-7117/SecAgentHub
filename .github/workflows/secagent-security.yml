@@ -2,19 +2,24 @@ name: SecAgent Security Gate
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
       - '**.tf'
       - 'backend/**'
       - 'tests/terraform/**'
+  workflow_dispatch:
 
 jobs:
   security-gate:
-    name: Cloud Security Gate
+    name: Pre-Deployment Cloud Security Gate
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout
+      - name: Checkout PR Branch
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,32 +32,51 @@ jobs:
           pip install -r requirements.txt
           pip install checkov pytest
 
-      - name: Find changed Terraform files
-        id: tf_files
+      - name: Extract Changed & Base Terraform Files
+        id: tf_diff
         run: |
-          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '\.tf$' || echo "")
-          echo "files=$CHANGED" >> $GITHUB_OUTPUT
-          if [ -z "$CHANGED" ]; then
-            echo "No Terraform changes detected."
+          # Create temporary directories for baseline and PR files
+          mkdir -p /tmp/secagent_head /tmp/secagent_base
+          
+          # Find all .tf files in the PR branch
+          find . -name "*.tf" -not -path "*/.terraform/*" -exec cp --parents {} /tmp/secagent_head/ \; || true
+          
+          # If this is a pull request, extract the base branch .tf files
+          if [ -n "${{ github.base_ref }}" ]; then
+            git checkout origin/${{ github.base_ref }} || true
+            find . -name "*.tf" -not -path "*/.terraform/*" -exec cp --parents {} /tmp/secagent_base/ \; || true
+            git checkout - || true
           fi
+          
+          echo "head_dir=/tmp/secagent_head" >> $GITHUB_OUTPUT
+          echo "base_dir=/tmp/secagent_base" >> $GITHUB_OUTPUT
 
-      - name: Run Security Gate on changed files
-        id: gate
+      - name: Run Backend Security Gate Suite
         run: |
           cd backend
-          python -m pytest tests/test_security_gate.py -v --tb=short
+          python -m pytest tests/ -v --tb=short
+
+      - name: Evaluate SecAgent Security Gate
+        id: gate_eval
+        env:
+          SECAGENT_API_URL: ${{ secrets.SECAGENT_API_URL }}
+          SECAGENT_API_KEY: ${{ secrets.SECAGENT_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          GITHUB_BASE_REF: ${{ github.base_ref || 'main' }}
+          GITHUB_SHA: ${{ github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          python backend/scripts/evaluate_gate.py /tmp/secagent_head /tmp/secagent_base
         continue-on-error: true
 
-      - name: Run Checkov on Terraform test cases
+      - name: Enforce Security Gate Verdict
         run: |
-          checkov -d tests/terraform --output json --quiet > /tmp/checkov_results.json 2>/dev/null || true
-          python backend/scripts/evaluate_gate.py /tmp/checkov_results.json
-
-      - name: Security Gate Summary
-        run: |
-          cat /tmp/gate_result.txt || echo "No gate result produced"
-
-      - name: Block on critical violations
-        run: |
-          EXIT_CODE=$(cat /tmp/gate_exit_code.txt 2>/dev/null || echo "0")
-          exit $EXIT_CODE
+          EXIT_CODE=$(cat /tmp/gate_exit_code.txt 2>/dev/null || echo "1")
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "🛑 SecAgent Security Gate BLOCKED this Pull Request due to critical security risks or reachable attack paths."
+            exit 1
+          else
+            echo "✅ SecAgent Security Gate PASSED. All infrastructure security checks verified."
+            exit 0
+          fi

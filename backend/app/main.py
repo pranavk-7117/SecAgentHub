@@ -28,6 +28,7 @@ from app.services.remediation_orchestrator import run_remediation_loop, verify_u
 from app.services.report_service import build_pdf
 from app.services.scanner_service import run_checkov, summarize_findings
 from app.twin_routes import router as twin_router
+from app.cicd_routes import router as cicd_router
 from app.x402_middleware import inspect_algorand_payment, payment_quote, require_agent_payments
 
 app = FastAPI(title="SecAgent Hub API", version="0.1.0")
@@ -39,6 +40,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(twin_router, prefix="/api/v1/twin")
+app.include_router(cicd_router, prefix="/api/v1/cicd")
+
 
 
 

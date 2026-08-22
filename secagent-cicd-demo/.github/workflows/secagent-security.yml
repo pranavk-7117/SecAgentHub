@@ -1,0 +1,137 @@
+name: SecAgent Cloud Security Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.tf'
+  workflow_dispatch:
+
+jobs:
+  security-gate:
+    name: Pre-Deployment Security Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR Branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Evaluate SecAgent Security Gate
+        id: gate_eval
+        env:
+          SECAGENT_API_URL: ${{ secrets.SECAGENT_API_URL }}
+          SECAGENT_API_KEY: ${{ secrets.SECAGENT_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          GITHUB_BASE_REF: ${{ github.base_ref || 'main' }}
+          GITHUB_SHA: ${{ github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          python - << 'EOF'
+          import os, sys, json, urllib.request, urllib.error
+          from pathlib import Path
+
+          api_url = os.environ.get("SECAGENT_API_URL")
+          if not api_url:
+              print("❌ ERROR: SECAGENT_API_URL secret is not set in GitHub repository secrets.", file=sys.stderr)
+              print("Please add SECAGENT_API_URL pointing to your SecAgent Hub backend deployment (e.g. https://your-secagent-api.railway.app).", file=sys.stderr)
+              sys.exit(1)
+
+          # Concatenate all .tf files in the PR
+          tf_files = list(Path(".").glob("**/*.tf"))
+          content = "\n\n".join([f.read_text(encoding="utf-8") for f in tf_files if ".terraform" not in str(f)])
+
+          # Read baseline if available
+          base_content = None
+          try:
+              import subprocess
+              base_ref = os.environ.get("GITHUB_BASE_REF", "main")
+              completed = subprocess.run(["git", "show", f"origin/{base_ref}:main.tf"], capture_output=True, text=True)
+              if completed.returncode == 0 and completed.stdout:
+                  base_content = completed.stdout
+          except Exception:
+              pass
+
+          payload = {
+              "repository": os.environ.get("GITHUB_REPOSITORY", "demo/infrastructure"),
+              "branch": os.environ.get("GITHUB_HEAD_REF", "feature/insecure-change"),
+              "base_branch": os.environ.get("GITHUB_BASE_REF", "main"),
+              "pr_number": int(os.environ.get("PR_NUMBER", "0")) if os.environ.get("PR_NUMBER") else None,
+              "commit_sha": os.environ.get("GITHUB_SHA"),
+              "terraform_content": content,
+              "base_terraform_content": base_content,
+              "filename": "main.tf",
+          }
+
+          headers = {"Content-Type": "application/json"}
+          api_key = os.environ.get("SECAGENT_API_KEY")
+          if api_key:
+              headers["Authorization"] = f"Bearer {api_key}"
+
+          req = urllib.request.Request(
+              f"{api_url.rstrip('/')}/api/v1/cicd/security-gate",
+              data=json.dumps(payload).encode("utf-8"),
+              headers=headers,
+              method="POST"
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=60) as resp:
+                  data = json.loads(resp.read().decode("utf-8"))
+          except Exception as exc:
+              print(f"❌ FAIL SAFE: SecAgent security gate could not reach backend at {api_url}: {exc}", file=sys.stderr)
+              sys.exit(1)
+
+          verdict = data.get("verdict", "BLOCK")
+          status = data.get("status", "BLOCKED")
+          risk_score = data.get("risk_score", 0)
+          critical_findings = data.get("critical_findings", 0)
+          critical_paths = data.get("critical_attack_paths", 0)
+          reasons = data.get("reasons", [])
+          scan_id = data.get("scan_id")
+
+          emoji = "❌" if verdict == "BLOCK" else "✅"
+          print(f"\n========================================")
+          print(f"  SECAGENT SECURITY GATE: {emoji} {status}")
+          print(f"========================================")
+          print(f"  Blast Radius Risk:      {risk_score}/100")
+          print(f"  Critical findings:      {critical_findings}")
+          print(f"  Critical attack paths:  {critical_paths}")
+          print(f"  FINAL VERDICT:          {verdict}")
+          if reasons:
+              print("\n  Blocking Reasons:")
+              for r in reasons:
+                  print(f"    • {r}")
+          if scan_id:
+              print(f"\n  View in SecAgent Hub:   {api_url}/scan/{scan_id}/ci")
+          print("========================================\n")
+
+          # Write GitHub Step Summary
+          summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_file:
+              with open(summary_file, "a") as f:
+                  f.write(f"## {emoji} SecAgent Security Gate: **{status}**\n\n")
+                  f.write(f"| Metric | Value | Status |\n| :--- | :--- | :--- |\n")
+                  f.write(f"| **Blast Radius Risk** | `{risk_score}/100` | {'🔴 Critical' if risk_score >= 70 else '🟢 Low'} |\n")
+                  f.write(f"| **Critical Findings** | `{critical_findings}` | {'🔴 Failing' if critical_findings > 0 else '🟢 Passing'} |\n")
+                  f.write(f"| **Critical Attack Paths** | `{critical_paths}` | {'🔴 Reachable Chains' if critical_paths > 0 else '🟢 None'} |\n\n")
+                  if reasons:
+                      f.write("### 🛑 Blocking Reasons\n")
+                      for r in reasons:
+                          f.write(f"- ⚠️ **{r}**\n")
+                      f.write("\n")
+                  if scan_id:
+                      f.write(f"### 🔗 SecAgent Hub Actions\n")
+                      f.write(f"- 🛡️ [View Full PR Security Gate Report]({api_url}/scan/{scan_id}/ci)\n")
+                      f.write(f"- 🧬 [Inspect in Security Digital Twin & AI Proof-of-Fix]({api_url}/scan/{scan_id}/twin)\n")
+
+          sys.exit(1 if verdict == "BLOCK" else 0)
+          EOF

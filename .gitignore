@@ -12,3 +12,7 @@ postgres-data/
 backend/data/
 *.log
 *.tsbuildinfo
+gate_exit_code.txt
+gate_result.txt
+.pytest_cache/
+

@@ -242,7 +242,7 @@ class SecurityDigitalTwin:
         
         critical_findings = sum(1 for f in failed if str(f.get("severity")).upper() == "CRITICAL")
         
-        public_exposure_check_ids = {"CKV_AWS_24", "CKV_AWS_20", "CKV_AWS_88", "CKV_AWS_8", "CKV_AWS_53", "CKV_AWS_54", "CKV_AWS_55", "CKV_AWS_56"}
+        public_exposure_check_ids = {"CKV_AWS_24", "CKV_AWS_20", "CKV_AWS_88", "CKV_AWS_53", "CKV_AWS_54", "CKV_AWS_55", "CKV_AWS_56"}
         checkov_public_exposures = sum(1 for f in failed if f.get("check_id") in public_exposure_check_ids)
         
         twin_internet_facing = [
