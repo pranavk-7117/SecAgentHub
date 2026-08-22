@@ -69,22 +69,38 @@ async def require_agent_payments(
 
 async def _verify_with_goplausible_facilitator(tx_id: str, amount: int, challenge: str) -> dict[str, Any] | None:
     settings = get_settings()
+    net_str = "algorand-mainnet" if settings.algorand_network == "mainnet" else "algorand-testnet"
     endpoints = [
         "https://facilitator.goplausible.xyz/verify",
         "https://facilitator.goplausible.xyz/api/v1/verify",
     ]
     payloads = [
         {
+            "x402Version": 1,
             "paymentHeader": f"x402 {tx_id}",
+            "paymentPayload": {"txId": tx_id, "txHash": tx_id},
             "paymentRequirements": {
-                "scheme": "algorand",
-                "network": settings.algorand_network or "testnet",
+                "x402Version": 1,
+                "scheme": "exact",
+                "network": net_str,
                 "payTo": settings.facilitator_address,
                 "price": amount,
                 "asset": settings.usdc_asa_id or 10458941,
             },
         },
-        {"tx_id": tx_id, "amount": amount, "challenge": challenge},
+        {
+            "x402Version": "1",
+            "paymentHeader": f"x402 {tx_id}",
+            "paymentPayload": tx_id,
+            "paymentRequirements": {
+                "x402Version": "1",
+                "scheme": "algorand",
+                "network": net_str,
+                "payTo": settings.facilitator_address,
+                "price": amount,
+                "asset": settings.usdc_asa_id or 10458941,
+            },
+        },
     ]
 
     for endpoint in endpoints:
@@ -96,22 +112,27 @@ async def _verify_with_goplausible_facilitator(tx_id: str, amount: int, challeng
                 req = urllib.request.Request(
                     endpoint,
                     data=data_bytes,
-                    headers={"Content-Type": "application/json", "User-Agent": "SecAgentHub/1.0"},
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SecAgentHub/1.0",
+                    },
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=3) as resp:
+                with urllib.request.urlopen(req, timeout=4) as resp:
                     res_body = json.loads(resp.read().decode("utf-8"))
-                    if resp.status in (200, 201) or res_body.get("valid") or res_body.get("verified") or res_body.get("ok"):
+                    if resp.status in (200, 201) and (res_body.get("isValid") or res_body.get("valid") or res_body.get("verified") or res_body.get("ok")):
                         return {
                             "ok": True,
                             "reason": "payment verified via GoPlausible x402 Facilitator",
                             "tx_id": tx_id,
-                            "network": res_body.get("network", "testnet"),
+                            "network": res_body.get("network", settings.algorand_network or "testnet"),
                             "verified_by": "GoPlausible x402 Facilitator",
                         }
             except Exception:
                 continue
     return None
+
 
 
 
