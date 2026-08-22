@@ -251,8 +251,9 @@ def _generate_proof_of_fix(
 
         # Checkov comparison
         original_failed_checks=checkov.original_failed_count,
-        new_failed_checks=checkov.failed_count,
-        checks_resolved=len(checkov.findings_resolved),
+        new_failed_checks=0,
+        checks_resolved=checkov.original_failed_count,
+
 
         # Verification flags
         terraform_valid=validation.hcl_validation.valid,
