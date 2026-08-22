@@ -38,7 +38,6 @@ class AgentExecutionRecord(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-
 class UploadResponse(BaseModel):
     scan_id: str
     findings_summary: dict[str, Any]
@@ -78,3 +77,18 @@ class ReactFlowEdge(BaseModel):
     source: str
     target: str
     label: str | None = None
+
+
+class RemediationGenerateRequest(BaseModel):
+    max_retries: int = 3
+    target_findings: list[str] | None = None
+
+
+class RemediationGenerateResponse(BaseModel):
+    proof_of_fix: dict[str, Any]
+    remediation: dict[str, Any] | None = None
+    validation: dict[str, Any] | None = None
+
+
+class VerifyPatchRequest(BaseModel):
+    patched_hcl: str
