@@ -154,9 +154,10 @@ export default function NewScanPage() {
               </div>
             </div>
           ) : tab === "upload" ? (
-            /* File Upload Zone */
-            <div
-              className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-teal-500/30 bg-white/[0.02] p-8 rounded-xl text-center transition hover:border-teal-500/60 hover:bg-white/[0.04]"
+            /* File Upload Zone — entire area is clickable */
+            <label
+              htmlFor="tf-upload"
+              className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-teal-500/30 bg-white/[0.02] p-8 rounded-xl text-center transition cursor-pointer hover:border-teal-500/60 hover:bg-white/[0.04]"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
@@ -173,17 +174,22 @@ export default function NewScanPage() {
                 accept=".tf,.hcl"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
               />
-              <label htmlFor="tf-upload" className="cursor-pointer text-sm font-bold text-teal-400 hover:text-teal-300 transition">
-                Browse Terraform file (.tf / .hcl)
-              </label>
+              <p className="text-sm font-bold text-teal-400">Browse Terraform file (.tf / .hcl)</p>
               <p className="mt-2 text-xs text-slate-500">{file ? file.name : "or drag & drop file here"}</p>
-              {file && <Badge className="mt-3 bg-teal-500/10 text-teal-300 border-teal-500/30">{Math.max(1, Math.round(file.size / 1024))} KB selected</Badge>}
+              {file && <span className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold bg-teal-500/10 border border-teal-500/30 text-teal-300 px-3 py-1 rounded-full">{Math.max(1, Math.round(file.size / 1024))} KB — ready to analyze</span>}
               
-              <Button className="mt-6 w-full max-w-xs bg-teal-600 hover:bg-teal-500 text-white font-bold" disabled={!file} onClick={submitUpload}>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); submitUpload(); }}
+                disabled={!file}
+                className="mt-6 w-full max-w-xs bg-teal-600 hover:bg-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-2.5 px-6 rounded-xl transition text-sm"
+              >
                 Analyze Infrastructure
-              </Button>
-            </div>
+              </button>
+            </label>
+
           ) : (
+
             /* GitHub PR / Repo Zone */
             <div className="flex-1 flex flex-col justify-center space-y-5 p-4">
               <div className="space-y-2">
