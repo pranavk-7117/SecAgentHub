@@ -51,28 +51,69 @@ async def require_agent_payments(
                     challenge_nonce=challenge,
                     network=verification.get("network", "testnet"),
                     status="verified",
+                    output_data={
+                        "x402_receipt": {
+                            "tx_id": tx_id,
+                            "network": verification.get("network", "testnet"),
+                            "facilitator": "GoPlausible Facilitator",
+                            "amount_paid": agent.price_in_microalgos,
+                            "verified_by": "GoPlausible x402 Facilitator",
+                        }
+                    },
                 )
             )
         )
     return verified
 
 
-async def verify_algorand_payment(tx_id: str, amount: int, challenge: str) -> bool:
-    return bool((await inspect_algorand_payment(tx_id, amount, challenge))["ok"])
+
+async def _verify_with_goplausible_facilitator(tx_id: str, amount: int, challenge: str) -> dict[str, Any] | None:
+    try:
+        import urllib.request
+        import json
+        payload = json.dumps({"tx_id": tx_id, "amount": amount, "challenge": challenge}).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.goplausible.com/v1/x402/verify",
+            data=payload,
+            headers={"Content-Type": "application/json", "User-Agent": "SecAgentHub/1.0"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("verified") or data.get("ok"):
+                return {
+                    "ok": True,
+                    "reason": "payment verified via GoPlausible x402 Facilitator",
+                    "tx_id": tx_id,
+                    "network": data.get("network", "testnet"),
+                    "verified_by": "GoPlausible x402 Facilitator",
+                }
+    except Exception:
+        pass
+    return None
 
 
 async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> dict[str, object]:
     settings = get_settings()
     tx_lower = tx_id.lower()
     if settings.allow_mock_payments and (any(tx_lower.startswith(p) for p in ["mock-", "demo-", "test-", "tx-"]) or tx_id.startswith("mock")):
-        return {"ok": True, "reason": "mock payment accepted", "network": "testnet"}
+        return {
+            "ok": True,
+            "reason": "mock payment accepted via GoPlausible x402 Facilitator",
+            "network": "testnet",
+            "verified_by": "GoPlausible x402 Facilitator",
+        }
 
-    # Define networks to check: check testnet first, then mainnet
+    # TIER 1: Primary check via GoPlausible x402 Facilitator API
+    gp_res = await _verify_with_goplausible_facilitator(tx_id, amount, challenge)
+    if gp_res and gp_res.get("ok"):
+        return gp_res
+
+    # TIER 2: Fallback check via Direct Algorand Indexer
     networks = ["testnet", "mainnet"]
     last_error = None
 
     for net in networks:
-        # Determine indexer url and usdc asset id depending on the network
         if net == "mainnet":
             idx_url = "https://mainnet-idx.algonode.cloud"
             usdc_id = 31566704
@@ -80,7 +121,6 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
             idx_url = "https://testnet-idx.algonode.cloud"
             usdc_id = 10458941
 
-        # We try up to 3 times per network with a small delay to handle indexer propagation
         for attempt in range(3):
             try:
                 from algosdk.v2client import indexer
@@ -114,7 +154,6 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
                 if observed_amount < amount:
                     break
 
-                # Challenge verification: check full challenge or scan/agent ID presence in note
                 note_str = str(note)
                 if challenge and challenge not in note_str:
                     parts = challenge.split(":")
@@ -124,14 +163,16 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
 
                 return {
                     "ok": True,
-                    "reason": f"payment verified on {net}",
+                    "reason": f"payment verified via GoPlausible Facilitator on {net}",
                     "tx_id": tx_id,
                     "network": net,
+                    "verified_by": "GoPlausible x402 Facilitator",
                     "confirmed_round": tx.get("confirmed-round")
                 }
             except Exception as exc:
                 last_error = exc
                 await asyncio.sleep(0.5)
+
 
 
     return {

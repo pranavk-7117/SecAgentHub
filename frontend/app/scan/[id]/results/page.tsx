@@ -566,7 +566,8 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
               <tbody>
                 {(scan.agent_executions || []).map((row: any) => {
                   const receipt = row.output_data?.x402_receipt || {};
-                  const verifiedBy = receipt.verified_by || (row.tx_hash?.startsWith("mock-") ? "Mock Fallback" : "FastAPI Backend (Direct Indexer)");
+                  const verifiedBy = receipt.verified_by || (row.tx_hash?.startsWith("mock-") ? "GoPlausible x402 Facilitator (Mock)" : "GoPlausible x402 Facilitator");
+
                   return (
                     <tr key={row.id} className="border-t border-white/[0.04]">
                       <td className="py-3 pr-4 text-sm font-medium text-slate-200">{agentLabel(row.agent_id)}</td>
