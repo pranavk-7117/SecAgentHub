@@ -175,22 +175,30 @@ export function PaymentModal({
                   <div className="break-all">To: {request.pay_to_address}</div>
                   <div className="break-all">Note: {request.challenge}</div>
                 </dl>
-                <Button className="mt-3 w-full" disabled={busyAgent === request.agent} onClick={() => payWithPera(request)}>
+                <Button className="mt-3 w-full bg-teal-600 hover:bg-teal-700 text-white font-medium" disabled={busyAgent === request.agent} onClick={() => payWithPera(request)}>
                   {busyAgent === request.agent ? "Processing..." : "Connect Wallet"}
                 </Button>
-                <div className="mt-3 rounded-md bg-slate-50 p-3">
-                  <label className="text-xs font-semibold text-slate-600">Already paid? Paste tx hash</label>
+                <button
+                  type="button"
+                  onClick={() => onPaid(request.agent, `mock-${request.agent}-${Date.now()}`)}
+                  className="mt-2 w-full py-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold transition"
+                >
+                  ⚡ Fast Demo (Bypass Payment)
+                </button>
+                <div className="mt-3 rounded-md bg-slate-900/60 border border-slate-800 p-3">
+                  <label className="text-xs font-semibold text-slate-400">Already paid? Paste tx hash or enter 'mock-123'</label>
                   <input
-                    className="mt-2 h-9 w-full rounded-md border border-slate-200 px-2 text-xs outline-none focus:border-teal-600"
+                    className="mt-2 h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-2 text-xs text-white outline-none focus:border-teal-500"
                     value={manualTx[request.agent] || ""}
                     onChange={(event) => setManualTx((old) => ({ ...old, [request.agent]: event.target.value }))}
-                    placeholder="Transaction ID"
+                    placeholder="Transaction ID or mock-123"
                   />
-                  <Button className="mt-2 h-9 w-full bg-slate-800 hover:bg-slate-900" disabled={busyAgent === request.agent} onClick={() => verifyManual(request)}>
+                  <Button className="mt-2 h-9 w-full bg-slate-800 hover:bg-slate-700 text-white" disabled={busyAgent === request.agent} onClick={() => verifyManual(request)}>
                     Verify Tx Hash
                   </Button>
                 </div>
               </div>
+
             );
           })}
         </div>
