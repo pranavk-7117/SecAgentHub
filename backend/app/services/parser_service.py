@@ -7,6 +7,7 @@ from typing import Any
 
 
 def parse_terraform(raw_hcl: str) -> dict[str, Any]:
+    raw_hcl = raw_hcl.lstrip("\ufeff").strip()
     try:
         import hcl2
 
