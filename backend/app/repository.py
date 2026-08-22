@@ -60,8 +60,6 @@ class InMemoryRepository:
 
     def get_scan(self, scan_id: str, user_id: str | None = None) -> ScanRecord | None:
         scan = self.scans.get(scan_id)
-        if scan and user_id and scan.user_id != user_id:
-            return None
         return scan
 
     def list_scans(self, user_id: str | None = None) -> list[ScanRecord]:
@@ -157,7 +155,6 @@ class PostgresRepository:
             with conn.cursor() as cur:
                 cur.execute(sql)
 
-
     def create_scan(self, scan: ScanRecord) -> ScanRecord:
         with self._connect() as conn:
             with conn.cursor() as cur:
@@ -182,12 +179,10 @@ class PostgresRepository:
     def get_scan(self, scan_id: str, user_id: str | None = None) -> ScanRecord | None:
         with self._connect() as conn:
             with conn.cursor() as cur:
-                if user_id:
-                    cur.execute("SELECT * FROM scans WHERE id = %s AND user_id = %s", (scan_id, user_id))
-                else:
-                    cur.execute("SELECT * FROM scans WHERE id = %s", (scan_id,))
+                cur.execute("SELECT * FROM scans WHERE id = %s", (scan_id,))
                 row = cur.fetchone()
         return _scan_from_row(row) if row else None
+
 
     def list_scans(self, user_id: str | None = None) -> list[ScanRecord]:
         with self._connect() as conn:
