@@ -253,7 +253,7 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
           <div className="col-span-1 space-y-6 flex flex-col h-full">
             {showAIFix ? (
               <>
-                <AIRemediationDiff />
+                <AIRemediationDiff selectedFix={selectedFix} />
                 <ProofOfFixPanel
                   scanId={params.id}
                   originalFailedCount={originalFailCount}
