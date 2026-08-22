@@ -131,4 +131,25 @@ export async function deleteScan(scanId: string) {
   return response.json();
 }
 
+export async function generateRemediationProof(scanId: string) {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE}/api/v1/remediation/${scanId}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders },
+    body: JSON.stringify({ max_retries: 3 }),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
 
+/** localStorage key for proof-of-fix state bridging twin → CI/CD page. */
+export const proofOfFixKey = (scanId: string) => `secagent_proof_${scanId}`;
+
+export interface ProofOfFixState {
+  verified: boolean;
+  newRisk: number;
+  newAttackPaths: number;
+  newFindings: number;
+  fixLabel: string;
+  verifiedAt: string;
+}

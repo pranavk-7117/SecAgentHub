@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, GitBranch, ArrowRight } from "lucide-react";
+import { ArrowLeft, GitBranch, ArrowRight, ShieldCheck } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { DigitalTwinCanvas } from "@/components/DigitalTwinCanvas";
 import { SimulationPanel } from "@/components/SimulationPanel";
@@ -10,7 +10,7 @@ import { PathDetailsPanel } from "@/components/PathDetailsPanel";
 import { RemediationOptimizer } from "@/components/RemediationOptimizer";
 import { AIRemediationDiff } from "@/components/AIRemediationDiff";
 import { ProofOfFixPanel } from "@/components/ProofOfFixPanel";
-import { getScan } from "@/lib/api";
+import { getScan, proofOfFixKey, type ProofOfFixState } from "@/lib/api";
 
 interface AttackPath {
   id: string;
@@ -149,6 +149,18 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
     setVerifyStatus("verifying");
     setTimeout(() => {
       setVerifyStatus("verified");
+      // Persist proof-of-fix state so the CI/CD page can flip its verdict
+      const state: ProofOfFixState = {
+        verified: true,
+        newRisk: hypotheticalRiskScore ?? 0,
+        newAttackPaths: remainingPathCount ?? 0,
+        newFindings: 0,
+        fixLabel: selectedFix?.label ?? "Security Fix Applied",
+        verifiedAt: new Date().toISOString(),
+      };
+      try {
+        localStorage.setItem(proofOfFixKey(params.id), JSON.stringify(state));
+      } catch (_) {}
     }, 1500);
   };
 
@@ -248,6 +260,34 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
                   status={verifyStatus}
                   onVerify={handleVerify}
                 />
+                {/* ── CI/CD Gate Status Banner — appears after verification ── */}
+                {verifyStatus === "verified" && (
+                  <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/[0.07] p-4 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                      <div>
+                        <p className="text-xs font-black text-emerald-400 uppercase tracking-wider">CI/CD Gate: Now PASSES ✓</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Fix verified — attack paths eliminated</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="rounded-lg bg-white/[0.04] border border-white/[0.05] p-2 text-center">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wide">Risk After Fix</p>
+                        <p className="text-lg font-black text-emerald-400">{hypotheticalRiskScore ?? 0}</p>
+                      </div>
+                      <div className="rounded-lg bg-white/[0.04] border border-white/[0.05] p-2 text-center">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wide">Paths Blocked</p>
+                        <p className="text-lg font-black text-emerald-400">{selectedFix?.pathsBlocked ?? 0}</p>
+                      </div>
+                    </div>
+                    <Link href={`/scan/${params.id}/ci`}>
+                      <button className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 transition shadow-lg shadow-emerald-500/20">
+                        <ShieldCheck className="w-4 h-4" />
+                        View Updated CI/CD Security Gate →
+                      </button>
+                    </Link>
+                  </div>
+                )}
               </>
             ) : (
               <div className="rounded-2xl border border-white/[0.05] border-dashed bg-white/[0.01] p-5 flex flex-col items-center justify-center text-center h-full text-slate-500 min-h-[300px] space-y-3">
@@ -259,6 +299,7 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
               </div>
             )}
           </div>
+
         </div>
 
       </div>

@@ -19,17 +19,26 @@ import {
 } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { Button } from "@/components/ui";
-import { getScan } from "@/lib/api";
+import { getScan, proofOfFixKey, type ProofOfFixState } from "@/lib/api";
 
 export default function CIPage({ params }: { params: { id: string } }) {
   const [scan, setScan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [proofState, setProofState] = useState<ProofOfFixState | null>(null);
 
   useEffect(() => {
     getScan(params.id)
       .then((data) => {
         setScan(data);
         setLoading(false);
+        // Check if a verified proof-of-fix was stored by the twin page
+        try {
+          const raw = localStorage.getItem(proofOfFixKey(params.id));
+          if (raw) {
+            const parsed: ProofOfFixState = JSON.parse(raw);
+            if (parsed.verified) setProofState(parsed);
+          }
+        } catch (_) {}
       })
       .catch(() => setLoading(false));
   }, [params.id]);
@@ -62,12 +71,18 @@ export default function CIPage({ params }: { params: { id: string } }) {
 
   // Extract real security gate data from scan
   const secGate = scan.graph?.security_gate || {};
-  const isBlocked = secGate.verdict === "BLOCK";
   const reasons: string[] = secGate.reasons || [];
-  const risk = scan.graph?.blast_radius_score ?? 0;
+  const originalRisk = scan.graph?.blast_radius_score ?? 0;
   const attackPaths = scan.graph?.attack_paths || [];
-  const criticalAttackPathsCount = secGate.critical_attack_paths ?? attackPaths.filter((p: any) => p.severity === "CRITICAL").length;
-  const criticalFindingsCount = secGate.critical_findings ?? 0;
+  const originalAttackPaths = secGate.critical_attack_paths ?? attackPaths.filter((p: any) => p.severity === "CRITICAL").length;
+  const originalFindings = secGate.critical_findings ?? 0;
+
+  // If a verified proof-of-fix was applied in the Digital Twin, override the gate verdict
+  const isFixed = proofState?.verified === true;
+  const isBlocked = isFixed ? false : secGate.verdict === "BLOCK";
+  const risk = isFixed ? (proofState?.newRisk ?? 0) : originalRisk;
+  const criticalAttackPathsCount = isFixed ? (proofState?.newAttackPaths ?? 0) : originalAttackPaths;
+  const criticalFindingsCount = isFixed ? (proofState?.newFindings ?? 0) : originalFindings;
 
   // PR metadata from scan record if available
   const prMeta = scan.parsed?.pr_metadata || scan.graph?.pr_metadata || {};
@@ -79,8 +94,9 @@ export default function CIPage({ params }: { params: { id: string } }) {
 
   // Base comparison if available
   const baseComp = scan.graph?.base_comparison;
-  const baselineRisk = baseComp ? baseComp.before_risk : Math.max(0, risk - (isBlocked ? 25 : 0));
-  const baselinePaths = baseComp ? baseComp.before_attack_paths : Math.max(0, criticalAttackPathsCount - (isBlocked ? 1 : 0));
+  const baselineRisk = baseComp ? baseComp.before_risk : Math.max(0, originalRisk - (isFixed ? 0 : 25));
+  const baselinePaths = baseComp ? baseComp.before_attack_paths : Math.max(0, originalAttackPaths - (isFixed ? 0 : 1));
+
 
   return (
     <Shell>
@@ -99,8 +115,29 @@ export default function CIPage({ params }: { params: { id: string } }) {
             </Link>
           </div>
         </div>
+        {/* ── FIX APPLIED BANNER ── shows after Digital Twin proof-of-fix ── */}
+        {isFixed && proofState && (
+          <div className="w-full max-w-5xl rounded-2xl border border-emerald-500/40 bg-emerald-500/[0.07] px-5 py-3.5 flex items-center justify-between gap-4 shadow-[0_0_20px_rgba(16,185,129,0.12)]">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div>
+                <p className="text-xs font-black text-emerald-400 uppercase tracking-wider">Proof-of-Fix Applied — Gate Now PASSES</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Fix: <span className="text-emerald-300 font-semibold">{proofState.fixLabel}</span>
+                  {" · "}Verified at {new Date(proofState.verifiedAt).toLocaleTimeString()}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => { try { localStorage.removeItem(proofOfFixKey(params.id)); } catch(_) {} setProofState(null); }}
+              className="text-[11px] text-slate-500 hover:text-slate-300 border border-white/[0.08] rounded-lg px-2.5 py-1 transition shrink-0"
+            >
+              Reset to Original
+            </button>
+          </div>
+        )}
 
-        {/* Main Security Gate Card */}
+
         <div className="w-full max-w-5xl rounded-2xl border border-white/[0.08] bg-white/[0.03] shadow-2xl shadow-black/40 backdrop-blur overflow-hidden">
           
           {/* Header */}
@@ -179,10 +216,11 @@ export default function CIPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
 
-                {/* PR Proposed Changes */}
+                {/* PR Proposed Changes / After Fix */}
                 <div className="space-y-3">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-teal-400 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" /> Proposed PR Changes
+                    <div className={`w-2 h-2 rounded-full ${isFixed ? "bg-emerald-400" : "bg-teal-400 animate-pulse"}`} />
+                    {isFixed ? "After Fix (Verified ✓)" : "Proposed PR Changes"}
                   </h3>
                   <div className={`rounded-xl border p-5 space-y-4 ${
                     isBlocked ? "border-red-500/30 bg-red-500/[0.04]" : "border-emerald-500/30 bg-emerald-500/[0.04]"
