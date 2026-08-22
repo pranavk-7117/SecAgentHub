@@ -184,7 +184,9 @@ class ResilientGoPlausibleFacilitator {
       // 1. First check if transaction is already confirmed on-chain or in pool
       try {
         const pending = await algod.pendingTransactionInformation(decoded.txId).do();
-        if (pending && (Number(pending["confirmed-round"] || pending["confirmedRound"] || 0) > 0 || !pending["pool-error"])) {
+        const confirmed = Number((pending as any)?.confirmedRound || (pending as any)?.["confirmed-round"] || 0);
+        const poolErr = (pending as any)?.poolError || (pending as any)?.["pool-error"] || "";
+        if (pending && (confirmed > 0 || !poolErr)) {
           alreadyInLedger = true;
           logToFile("localSettle: tx already verified via pending check: " + decoded.txId);
         }
