@@ -180,46 +180,63 @@ class ResilientGoPlausibleFacilitator {
     try {
       const algod = new algosdk.Algodv2(ALGOD_TOKEN, ALGOD_URL, "");
       let alreadyInLedger = false;
-      try {
-        await algod.sendRawTransaction(decoded.signedGroup).do();
-      } catch (broadcastError) {
-        // If broadcast throws, check if transaction is already in pool or confirmed on-chain
-        try {
-          const pending = await algod.pendingTransactionInformation(decoded.txId).do();
-          if (pending && (Number(pending["confirmed-round"] || pending["confirmedRound"] || 0) > 0 || !pending["pool-error"])) {
-            alreadyInLedger = true;
-            logToFile("localSettle: tx verified via pendingTransactionInformation: " + decoded.txId);
-          }
-        } catch (checkErr) {}
 
-        const msg = broadcastError instanceof Error ? broadcastError.message : String(broadcastError);
-        if (
-          alreadyInLedger ||
-          msg.toLowerCase().includes("already in ledger") ||
-          msg.toLowerCase().includes("already committed") ||
-          msg.toLowerCase().includes("transaction already in pool") ||
-          (msg.toLowerCase().includes("overspend") === false && msg.toLowerCase().includes("already"))
-        ) {
+      // 1. First check if transaction is already confirmed on-chain or in pool
+      try {
+        const pending = await algod.pendingTransactionInformation(decoded.txId).do();
+        if (pending && (Number(pending["confirmed-round"] || pending["confirmedRound"] || 0) > 0 || !pending["pool-error"])) {
           alreadyInLedger = true;
-          logToFile("localSettle: tx already in ledger, waiting for confirmation: " + decoded.txId);
-        } else {
-          logToFile("localSettle: broadcast error (not 'already in ledger'): " + msg);
-          return {
-            success: false,
-            errorReason: msg,
-            transaction: decoded.txId,
-            network: paymentRequirements.network,
-            payer: verification.payer
-          };
+          logToFile("localSettle: tx already verified via pending check: " + decoded.txId);
+        }
+      } catch (checkErr) {}
+
+      if (!alreadyInLedger) {
+        // 2. Try broadcasting the full signed group
+        try {
+          await algod.sendRawTransaction(decoded.signedGroup).do();
+        } catch (broadcastError) {
+          // 3. If group broadcast failed, try broadcasting just the user's asset transfer transaction
+          let singleTxSuccess = false;
+          try {
+            const payload = paymentPayload.payload as { paymentGroup?: string[]; paymentIndex?: number };
+            if (payload?.paymentGroup && typeof payload.paymentIndex === "number") {
+              const singleTxBytes = new Uint8Array(Buffer.from(payload.paymentGroup[payload.paymentIndex], "base64"));
+              await algod.sendRawTransaction(singleTxBytes).do();
+              singleTxSuccess = true;
+              logToFile("localSettle: single user tx broadcast succeeded: " + decoded.txId);
+            }
+          } catch (singleTxError) {}
+
+          if (!singleTxSuccess) {
+            const msg = broadcastError instanceof Error ? broadcastError.message : String(broadcastError);
+            if (
+              alreadyInLedger ||
+              msg.toLowerCase().includes("already in ledger") ||
+              msg.toLowerCase().includes("already committed") ||
+              msg.toLowerCase().includes("transaction already in pool") ||
+              (msg.toLowerCase().includes("overspend") === false && msg.toLowerCase().includes("already"))
+            ) {
+              alreadyInLedger = true;
+              logToFile("localSettle: tx already in ledger, waiting for confirmation: " + decoded.txId);
+            } else {
+              logToFile("localSettle: broadcast error: " + msg);
+              return {
+                success: false,
+                errorReason: msg,
+                transaction: decoded.txId,
+                network: paymentRequirements.network,
+                payer: verification.payer
+              };
+            }
+          }
         }
       }
+
       try {
         await waitForConfirmation(algod, decoded.txId);
       } catch (confirmError) {
         const confirmMsg = confirmError instanceof Error ? confirmError.message : String(confirmError);
         logToFile("localSettle: waitForConfirmation failed: " + confirmMsg + (alreadyInLedger ? " (was already in ledger)" : ""));
-        // If already in ledger and confirmation polling timed out, still mark as success
-        // — the indexer will eventually pick it up
         if (alreadyInLedger) {
           return {
             success: true,
@@ -236,6 +253,7 @@ class ResilientGoPlausibleFacilitator {
           payer: verification.payer
         };
       }
+
       return {
         success: true,
         transaction: decoded.txId,
