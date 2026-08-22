@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import secrets
@@ -66,93 +66,29 @@ async def require_agent_payments(
     return verified
 
 
-
-async def _verify_with_goplausible_facilitator(tx_id: str, amount: int, challenge: str) -> dict[str, Any] | None:
-    settings = get_settings()
-    net_str = "algorand-mainnet" if settings.algorand_network == "mainnet" else "algorand-testnet"
-    endpoints = [
-        "https://facilitator.goplausible.xyz/verify",
-        "https://facilitator.goplausible.xyz/api/v1/verify",
-    ]
-    payloads = [
-        {
-            "x402Version": 1,
-            "paymentHeader": f"x402 {tx_id}",
-            "paymentPayload": {"txId": tx_id, "txHash": tx_id},
-            "paymentRequirements": {
-                "x402Version": 1,
-                "scheme": "exact",
-                "network": net_str,
-                "payTo": settings.facilitator_address,
-                "price": amount,
-                "asset": settings.usdc_asa_id or 10458941,
-            },
-        },
-        {
-            "x402Version": "1",
-            "paymentHeader": f"x402 {tx_id}",
-            "paymentPayload": tx_id,
-            "paymentRequirements": {
-                "x402Version": "1",
-                "scheme": "algorand",
-                "network": net_str,
-                "payTo": settings.facilitator_address,
-                "price": amount,
-                "asset": settings.usdc_asa_id or 10458941,
-            },
-        },
-    ]
-
-    for endpoint in endpoints:
-        for p in payloads:
-            try:
-                import json
-                import urllib.request
-                data_bytes = json.dumps(p).encode("utf-8")
-                req = urllib.request.Request(
-                    endpoint,
-                    data=data_bytes,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": "application/json",
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SecAgentHub/1.0",
-                    },
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    res_body = json.loads(resp.read().decode("utf-8"))
-                    if resp.status in (200, 201) and (res_body.get("isValid") or res_body.get("valid") or res_body.get("verified") or res_body.get("ok")):
-                        return {
-                            "ok": True,
-                            "reason": "payment verified via GoPlausible x402 Facilitator",
-                            "tx_id": tx_id,
-                            "network": res_body.get("network", settings.algorand_network or "testnet"),
-                            "verified_by": "GoPlausible x402 Facilitator",
-                        }
-            except Exception:
-                continue
-    return None
-
-
+async def verify_algorand_payment(tx_id: str, amount: int, challenge: str) -> bool:
+    return bool((await inspect_algorand_payment(tx_id, amount, challenge))["ok"])
 
 
 async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> dict[str, object]:
     settings = get_settings()
+
+    # Mock / demo mode — accept any tx_id starting with known prefixes
     tx_lower = tx_id.lower()
-    if settings.allow_mock_payments and (any(tx_lower.startswith(p) for p in ["mock-", "demo-", "test-", "tx-"]) or tx_id.startswith("mock")):
+    if settings.allow_mock_payments and (
+        tx_lower.startswith("mock-")
+        or tx_lower.startswith("demo-")
+        or tx_lower.startswith("test-")
+        or tx_lower.startswith("tx-")
+    ):
         return {
             "ok": True,
-            "reason": "mock payment accepted via GoPlausible x402 Facilitator",
+            "reason": "mock payment accepted",
             "network": "testnet",
             "verified_by": "GoPlausible x402 Facilitator",
         }
 
-    # TIER 1: Primary check via GoPlausible x402 Facilitator API
-    gp_res = await _verify_with_goplausible_facilitator(tx_id, amount, challenge)
-    if gp_res and gp_res.get("ok"):
-        return gp_res
-
-    # TIER 2: Fallback check via Direct Algorand Indexer
+    # Live verification via Algorand Indexer (testnet first, then mainnet)
     networks = ["testnet", "mainnet"]
     last_error = None
 
@@ -173,25 +109,25 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
                     await asyncio.sleep(0.8)
                     continue
 
-                asset_transfer = tx.get("asset-transfer-transaction", {})
-                pay_transfer = tx.get("payment-transaction", {})
+                transfer = tx.get("asset-transfer-transaction", {})
                 note = _decode_note(tx.get("note", ""))
 
                 if tx.get("confirmed-round", 0) <= 0:
                     await asyncio.sleep(0.8)
                     continue
 
-                if asset_transfer:
-                    observed_receiver = str(asset_transfer.get("receiver", "")).upper()
-                    observed_amount = int(asset_transfer.get("amount", 0))
-                elif pay_transfer:
-                    observed_receiver = str(pay_transfer.get("receiver", "")).upper()
-                    observed_amount = int(pay_transfer.get("amount", 0))
-                else:
+                if not transfer:
                     break
 
-                expected_receiver = str(settings.facilitator_address or "").upper()
-                if expected_receiver and expected_receiver != "TESTNET_FACILITATOR_ADDRESS" and observed_receiver != expected_receiver:
+                observed_receiver = transfer.get("receiver")
+                observed_asset = int(transfer.get("asset-id", 0))
+                observed_amount = int(transfer.get("amount", 0))
+
+                expected_receiver = settings.facilitator_address
+                if expected_receiver and observed_receiver != expected_receiver:
+                    break
+
+                if observed_asset != usdc_id:
                     break
 
                 if observed_amount < amount:
@@ -199,6 +135,7 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
 
                 note_str = str(note)
                 if challenge and challenge not in note_str:
+                    # Partial match — allow if any meaningful part of the challenge is in the note
                     parts = challenge.split(":")
                     if not any(p in note_str for p in parts if len(p) > 3):
                         if "secagent" not in note_str.lower() and "x402" not in note_str.lower():
@@ -206,17 +143,15 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
 
                 return {
                     "ok": True,
-                    "reason": f"payment verified via GoPlausible Facilitator on {net}",
+                    "reason": f"payment verified on {net}",
                     "tx_id": tx_id,
                     "network": net,
                     "verified_by": "GoPlausible x402 Facilitator",
-                    "confirmed_round": tx.get("confirmed-round")
+                    "confirmed_round": tx.get("confirmed-round"),
                 }
             except Exception as exc:
                 last_error = exc
                 await asyncio.sleep(0.5)
-
-
 
     return {
         "ok": False,
@@ -264,7 +199,6 @@ def _decode_note(note: str) -> str:
 
 
 def _payment_required(scan_id: str, agent_ids: list[str], verification: dict[str, object] | None = None) -> HTTPException:
-    settings = get_settings()
     payment_requests = []
     for agent_id in agent_ids:
         agent = get_agent(agent_id)

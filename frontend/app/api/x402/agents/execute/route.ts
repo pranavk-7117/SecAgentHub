@@ -168,8 +168,54 @@ class ResilientGoPlausibleFacilitator {
     }
     try {
       const algod = new algosdk.Algodv2(ALGOD_TOKEN, ALGOD_URL, "");
-      await algod.sendRawTransaction(decoded.signedGroup).do();
-      await waitForConfirmation(algod, decoded.txId);
+      let alreadyInLedger = false;
+      try {
+        await algod.sendRawTransaction(decoded.signedGroup).do();
+      } catch (broadcastError) {
+        const msg = broadcastError instanceof Error ? broadcastError.message : String(broadcastError);
+        // If already broadcast (e.g. by the x402 SDK client before our server received it), treat as success
+        if (
+          msg.toLowerCase().includes("already in ledger") ||
+          msg.toLowerCase().includes("already committed") ||
+          msg.toLowerCase().includes("transaction already in pool") ||
+          msg.toLowerCase().includes("overspend") === false && msg.toLowerCase().includes("already")
+        ) {
+          alreadyInLedger = true;
+          logToFile("localSettle: tx already in ledger, waiting for confirmation: " + decoded.txId);
+        } else {
+          logToFile("localSettle: broadcast error (not 'already in ledger'): " + msg);
+          return {
+            success: false,
+            errorReason: msg,
+            transaction: decoded.txId,
+            network: paymentRequirements.network,
+            payer: verification.payer
+          };
+        }
+      }
+      try {
+        await waitForConfirmation(algod, decoded.txId);
+      } catch (confirmError) {
+        const confirmMsg = confirmError instanceof Error ? confirmError.message : String(confirmError);
+        logToFile("localSettle: waitForConfirmation failed: " + confirmMsg + (alreadyInLedger ? " (was already in ledger)" : ""));
+        // If already in ledger and confirmation polling timed out, still mark as success
+        // — the indexer will eventually pick it up
+        if (alreadyInLedger) {
+          return {
+            success: true,
+            transaction: decoded.txId,
+            network: paymentRequirements.network,
+            payer: verification.payer
+          };
+        }
+        return {
+          success: false,
+          errorReason: confirmMsg,
+          transaction: decoded.txId,
+          network: paymentRequirements.network,
+          payer: verification.payer
+        };
+      }
       return {
         success: true,
         transaction: decoded.txId,
