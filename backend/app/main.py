@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from app.core.config import get_settings
-from app.models import AgentExecuteRequest, AgentExecutionRecord, ChatRequest, ScanRecord, UploadResponse, X402SettledExecuteRequest
+from app.models import AgentExecuteRequest, AgentExecutionRecord, ChatRequest, ScanRecord, UploadResponse, X402SettledExecuteRequest, RemediationGenerateRequest, RemediationGenerateResponse, VerifyPatchRequest
 from app.repository import repository
 from app.services.agent_service import AGENTS, answer_question, execute_agent, get_agent
 from app.services.graph_service import build_attack_graph
@@ -16,6 +16,7 @@ from app.services.parser_service import parse_terraform
 from app.services.report_service import build_pdf
 from app.services.scanner_service import run_checkov, summarize_findings
 from app.x402_middleware import inspect_algorand_payment, payment_quote, require_agent_payments
+from app.services.remediation_orchestrator import run_remediation_loop, verify_user_patch
 
 app = FastAPI(title="SecAgent Hub API", version="0.1.0")
 app.add_middleware(
@@ -277,3 +278,31 @@ async def delete_scan(scan_id: str, user_id: str = Depends(get_current_user_id))
     return {"success": True}
 
 
+@app.post("/api/v1/remediation/{scan_id}/generate", response_model=RemediationGenerateResponse)
+async def generate_remediation_endpoint(scan_id: str, request: RemediationGenerateRequest, user_id: str = Depends(get_current_user_id)) -> RemediationGenerateResponse:
+    scan = repository.get_scan(scan_id, user_id=user_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+    
+    proof = run_remediation_loop(scan, max_retries=request.max_retries, target_check_ids=request.target_findings)
+    
+    return RemediationGenerateResponse(
+        proof_of_fix=proof.model_dump(mode="json"),
+        remediation=proof.remediation.model_dump(mode="json") if proof.remediation else None,
+        validation=proof.validation.model_dump(mode="json") if proof.validation else None,
+    )
+
+
+@app.get("/api/v1/remediation/{scan_id}/proof")
+async def get_remediation_proof(scan_id: str, user_id: str = Depends(get_current_user_id)) -> dict[str, object]:
+    raise HTTPException(status_code=404, detail="Proof storage not implemented in current branch.")
+
+
+@app.post("/api/v1/remediation/{scan_id}/verify-patch")
+async def verify_patch_endpoint(scan_id: str, request: VerifyPatchRequest, user_id: str = Depends(get_current_user_id)) -> dict[str, object]:
+    scan = repository.get_scan(scan_id, user_id=user_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+    
+    proof = verify_user_patch(scan, request.patched_hcl)
+    return {"proof_of_fix": proof.model_dump(mode="json")}

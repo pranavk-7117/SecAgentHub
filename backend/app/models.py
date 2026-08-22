@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -78,3 +79,18 @@ class ReactFlowEdge(BaseModel):
     source: str
     target: str
     label: str | None = None
+
+
+class RemediationGenerateRequest(BaseModel):
+    target_findings: list[str] | None = None
+    max_retries: int = 3
+
+
+class RemediationGenerateResponse(BaseModel):
+    proof_of_fix: dict[str, Any]
+    remediation: dict[str, Any] | None = None
+    validation: dict[str, Any] | None = None
+
+
+class VerifyPatchRequest(BaseModel):
+    patched_hcl: str

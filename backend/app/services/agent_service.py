@@ -32,7 +32,7 @@ def execute_agent(agent_id: str, parsed: dict[str, Any], findings: dict[str, Any
     if agent_id == "attack_path":
         return _attack_path(graph)
     if agent_id == "ai_remediation":
-        return _ai_remediation(raw_hcl, findings)
+        return _ai_remediation(raw_hcl, findings, parsed, graph)
     raise ValueError(f"Unknown agent: {agent_id}")
 
 
@@ -157,18 +157,31 @@ def _attack_path(graph: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _ai_remediation(raw_hcl: str, findings: dict[str, Any]) -> dict[str, Any]:
-    prompt = (
-        "Generate a security remediation response with threat explanation, corrected Terraform HCL, "
-        f"and mitigation steps.\nTerraform:\n{raw_hcl[:8000]}\nFindings:\n{json.dumps(findings)[:8000]}"
+def _ai_remediation(raw_hcl: str, findings: dict[str, Any], parsed: dict[str, Any], graph: dict[str, Any]) -> dict[str, Any]:
+    from app.models import ScanRecord
+    from app.services.remediation_orchestrator import run_remediation_loop
+
+    scan = ScanRecord(
+        filename="in_memory.tf",
+        raw_hcl=raw_hcl,
+        parsed=parsed,
+        raw_checkov_json=findings,
+        graph=graph,
     )
-    text = _groq_or_fallback(prompt, "You are the AI Remediation Agent for Terraform AWS security.")
+    
+    proof = run_remediation_loop(scan, max_retries=1)
+    
     return {
         "agent": "AI Remediation Agent",
-        "summary": "Generated threat explanation, corrected Terraform, and mitigation steps.",
-        "explanation": text,
-        "corrected_hcl": _fallback_hcl(raw_hcl),
-        "steps": ["Review exposed resources.", "Apply least privilege.", "Run terraform plan and Checkov again."],
+        "summary": "Generated threat explanation, corrected Terraform, and mitigation steps via closed-loop verification.",
+        "explanation": proof.remediation.explanation if proof.remediation else "Remediation failed.",
+        "corrected_hcl": proof.remediation.terraform_patch if proof.remediation else raw_hcl,
+        "steps": [
+            f"Verification status: {proof.status.value}",
+            f"Original attack paths: {proof.original_attack_paths} -> {proof.new_attack_paths}",
+            f"Failed checks: {proof.original_failed_checks} -> {proof.new_failed_checks}"
+        ],
+        "proof_of_fix": proof.model_dump(mode="json")
     }
 
 
