@@ -10,12 +10,13 @@ from app.models import AgentDefinition
 
 
 AGENTS = [
-    AgentDefinition(id="misconfiguration", name="Misconfiguration Agent", description="Finds open ports, public buckets, and weak storage controls.", price_in_microalgos=250000, icon="ShieldAlert"),
-    AgentDefinition(id="iam_risk", name="IAM Risk Agent", description="Detects wildcard privileges and escalation risks.", price_in_microalgos=300000, icon="KeyRound"),
-    AgentDefinition(id="compliance", name="Compliance Agent", description="Maps findings to CIS, NIST, and PCI DSS posture.", price_in_microalgos=200000, icon="ClipboardCheck"),
-    AgentDefinition(id="attack_path", name="Attack Path Agent", description="Explains reachable paths through the attack graph.", price_in_microalgos=350000, icon="Route"),
-    AgentDefinition(id="ai_remediation", name="AI Remediation Agent", description="Generates explanations, fixed HCL, and mitigation steps.", price_in_microalgos=500000, icon="Sparkles"),
+    AgentDefinition(id="misconfiguration", name="Misconfiguration Agent", description="Finds open ports, public buckets, and weak storage controls.", price_in_microalgos=10000, icon="ShieldAlert"),
+    AgentDefinition(id="iam_risk", name="IAM Risk Agent", description="Detects wildcard privileges and escalation risks.", price_in_microalgos=10000, icon="KeyRound"),
+    AgentDefinition(id="compliance", name="Compliance Agent", description="Maps findings to CIS, NIST, and PCI DSS posture.", price_in_microalgos=10000, icon="ClipboardCheck"),
+    AgentDefinition(id="attack_path", name="Attack Path Agent", description="Explains reachable paths through the attack graph.", price_in_microalgos=10000, icon="Route"),
+    AgentDefinition(id="ai_remediation", name="AI Remediation Agent", description="Generates explanations, fixed HCL, and mitigation steps.", price_in_microalgos=10000, icon="Sparkles"),
 ]
+
 
 
 def get_agent(agent_id: str) -> AgentDefinition | None:

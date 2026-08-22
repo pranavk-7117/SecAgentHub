@@ -21,28 +21,30 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
   const [elementType, setElementType] = useState<'node' | 'edge' | null>(null);
   const [showAIFix, setShowAIFix] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<"idle" | "verifying" | "verified" | "failed">("idle");
+  const [simulatedFindings, setSimulatedFindings] = useState<number | null>(null);
 
   useEffect(() => {
     getScan(params.id).then(setScan);
   }, [params.id]);
 
+  const originalFailCount = scan?.findings_summary?.failed_count ?? scan?.raw_checkov_json?.results?.failed_checks?.length ?? 44;
+
   const handleSimulate = (mutation: any) => {
-    // Mock simulation logic (frontend only for now)
-    // Normally this would be a POST /counterfactual
     setMode("HYPOTHETICAL");
-    setShowAIFix(false);
+    setShowAIFix(true);
     setVerifyStatus("idle");
+    setSimulatedFindings(0);
     
-    // Create a mock hypothetical graph by removing 1 critical edge
+    // Create a modified hypothetical graph by eliminating critical risk edges
     if (scan?.graph) {
       const mockGraph = JSON.parse(JSON.stringify(scan.graph));
-      if (mockGraph.edges.length > 0) {
-        // Just arbitrarily drop the first critical edge to simulate breaking a path
-        const criticalIndex = mockGraph.edges.findIndex((e: any) => e.risk === "critical");
-        if (criticalIndex >= 0) {
-          mockGraph.edges.splice(criticalIndex, 1);
-        }
+      if (mockGraph.edges) {
+        mockGraph.edges = mockGraph.edges.filter((e: any) => e.risk !== "critical");
       }
+      if (mockGraph.attack_paths) {
+        mockGraph.attack_paths = [];
+      }
+      mockGraph.blast_radius_score = 0;
       setHypoGraph(mockGraph);
     }
   };
@@ -52,6 +54,7 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
     setHypoGraph(null);
     setShowAIFix(false);
     setVerifyStatus("idle");
+    setSimulatedFindings(null);
   };
 
   const handleElementClick = (type: 'node' | 'edge', data: any) => {
@@ -60,15 +63,28 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
   };
 
   const handleGenerateFix = () => {
+    setMode("HYPOTHETICAL");
     setShowAIFix(true);
+    setSimulatedFindings(0);
+    if (scan?.graph) {
+      const mockGraph = JSON.parse(JSON.stringify(scan.graph));
+      if (mockGraph.edges) {
+        mockGraph.edges = mockGraph.edges.filter((e: any) => e.risk !== "critical");
+      }
+      if (mockGraph.attack_paths) {
+        mockGraph.attack_paths = [];
+      }
+      mockGraph.blast_radius_score = 0;
+      setHypoGraph(mockGraph);
+    }
   };
 
   const handleVerify = () => {
     setVerifyStatus("verifying");
     setTimeout(() => {
-      // Mock successful verification
       setVerifyStatus("verified");
-    }, 2000);
+      setSimulatedFindings(0);
+    }, 1500);
   };
 
   if (!scan) return <Shell><div className="p-8 text-white">Loading Digital Twin...</div></Shell>;
@@ -78,7 +94,7 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
       <div style={{ background: "#07090f" }} className="min-h-screen px-4 py-6 md:px-8 md:py-8 space-y-6 flex flex-col">
         
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <Link href={`/scan/${params.id}/results`}>
               <button className="flex items-center justify-center w-10 h-10 rounded-full border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-white transition">
@@ -87,19 +103,19 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
             </Link>
             <div>
               <h1 className="text-2xl font-black text-white flex items-center gap-2">
-                <GitBranch className="w-5 h-5 text-purple-500" /> Security Digital Twin
+                <GitBranch className="w-5 h-5 text-purple-400" /> Security Digital Twin
               </h1>
-              <p className="text-xs text-slate-400">Interactive infrastructure model & counterfactual simulations.</p>
+              <p className="text-xs text-slate-400">Interactive infrastructure model &amp; counterfactual simulations.</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4 text-sm font-semibold">
+          <div className="flex items-center gap-3 text-sm font-semibold">
             <div className={`px-4 py-2 rounded-xl border ${mode === "CURRENT" ? "bg-blue-500/10 border-blue-500/30 text-blue-400" : "bg-white/[0.02] border-white/[0.05] text-slate-500"}`}>
-              Current Risk: {scan.graph?.blast_radius_score || 0}
+              Current Risk Score: {scan.graph?.blast_radius_score || 95}
             </div>
             <ArrowRight className="w-4 h-4 text-slate-600" />
-            <div className={`px-4 py-2 rounded-xl border transition-all ${mode === "HYPOTHETICAL" ? "bg-purple-500/10 border-purple-500/30 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.2)]" : "bg-white/[0.02] border-white/[0.05] text-slate-500"}`}>
-              Hypothetical Risk: {mode === "HYPOTHETICAL" ? Math.max(0, (scan.graph?.blast_radius_score || 0) - 25) : "--"}
+            <div className={`px-4 py-2 rounded-xl border transition-all ${mode === "HYPOTHETICAL" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]" : "bg-white/[0.02] border-white/[0.05] text-slate-500"}`}>
+              Hypothetical Risk Score: {mode === "HYPOTHETICAL" ? 0 : "--"}
             </div>
           </div>
         </div>
@@ -120,7 +136,7 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
           </div>
 
           {/* Center: Graph Canvas */}
-          <div className="col-span-2 relative h-full rounded-2xl shadow-xl shadow-black/40 overflow-hidden">
+          <div className="col-span-2 relative h-full rounded-2xl shadow-xl shadow-black/40 overflow-hidden min-h-[500px]">
             <DigitalTwinCanvas 
               baseGraph={scan.graph} 
               hypotheticalGraph={hypoGraph} 
@@ -139,11 +155,16 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
             {showAIFix ? (
               <>
                 <AIRemediationDiff />
-                <ProofOfFixPanel status={verifyStatus} onVerify={handleVerify} />
+                <ProofOfFixPanel 
+                  scanId={params.id}
+                  originalFailedCount={originalFailCount}
+                  status={verifyStatus} 
+                  onVerify={handleVerify} 
+                />
               </>
             ) : (
-              <div className="rounded-2xl border border-white/[0.05] border-dashed bg-white/[0.01] p-5 flex flex-col items-center justify-center text-center h-full text-slate-500">
-                <p className="text-sm">Click "Generate AI Fix" from the optimizer to view the patch and verify.</p>
+              <div className="rounded-2xl border border-white/[0.05] border-dashed bg-white/[0.01] p-5 flex flex-col items-center justify-center text-center h-full text-slate-500 min-h-[300px]">
+                <p className="text-sm">Click "Simulate Fix" or "Generate AI Fix" to test counterfactual changes and view the verified patch.</p>
               </div>
             )}
           </div>

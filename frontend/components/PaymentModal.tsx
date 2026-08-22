@@ -67,14 +67,26 @@ export function PaymentModal({
       setAccount(sender);
       const algod = new algosdk.Algodv2(token, algodUrl, "");
       const suggestedParams = await algod.getTransactionParams().do();
-      const txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-        sender,
-        receiver,
-        amount: BigInt(request.price_in_microalgos),
-        assetIndex: BigInt(assetId),
-        note: new TextEncoder().encode(request.challenge),
-        suggestedParams
-      });
+      let txn: algosdk.Transaction;
+      if (assetId > 0) {
+        txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+          sender,
+          receiver,
+          amount: BigInt(request.price_in_microalgos),
+          assetIndex: BigInt(assetId),
+          note: new TextEncoder().encode(request.challenge),
+          suggestedParams
+        });
+      } else {
+        txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+          sender,
+          receiver,
+          amount: BigInt(request.price_in_microalgos),
+          note: new TextEncoder().encode(request.challenge),
+          suggestedParams
+        });
+      }
+
       const signed = await wallet.signTransaction(
         [[{ txn, signers: [sender], message: `SecAgent Hub ${request.agent} payment` }]],
         sender
@@ -90,14 +102,17 @@ export function PaymentModal({
       await verifyWithRetry(request.agent, txId);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Wallet payment failed";
-      if (message.toLowerCase().includes("private key")) {
-        setError("Pera cannot sign with the currently connected account. Click Reset Wallet, then connect a normal TestNet account that you own and that has opted into USDC ASA 10458941.");
+      if (message.toLowerCase().includes("underflow") || message.toLowerCase().includes("subtracting") || message.toLowerCase().includes("balance")) {
+        setError("Insufficient ALGO balance in wallet to pay 0.3 ALGO. Click 'Fast Demo (Bypass Payment)' below to test instantly, or dispense TestNet ALGOs to your wallet.");
+      } else if (message.toLowerCase().includes("private key")) {
+        setError("Pera cannot sign with the currently connected account. Click Reset Wallet, then connect a normal TestNet account that you own.");
       } else {
         setError(message);
       }
     } finally {
       setBusyAgent(null);
     }
+
   }
 
   async function verifyWithRetry(agentId: string, txHash: string) {

@@ -47,9 +47,9 @@ export default function AgentPickerPage({ params }: { params: { id: string } }) 
       const remaining = paymentRequests.filter((request) => request.agent !== agentId);
       setPaymentRequests(remaining);
       if (!remaining.length) {
-        await executeAgents(params.id, selected);
         router.push(`/scan/${params.id}/results`);
       }
+
     } catch (err) {
       const text = err instanceof Error ? err.message : "Payment verification failed";
       setMessage(text);
