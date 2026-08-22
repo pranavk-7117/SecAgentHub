@@ -383,16 +383,25 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
                             <CheckCircle2 className="w-4 h-4" /> Patch Applied to PR Branch
                           </div>
                           <p className="text-slate-400 text-[10px]">
-                            {prResult?.message || "Verified patch committed to feature/insecure-change. CI/CD Gate re-evaluating on GitHub."}
+                            {prResult?.message || `Verified patch committed to ${scan?.parsed?.pr_metadata?.branch || scan?.graph?.pr_metadata?.branch || "feature branch"}. CI/CD Gate re-evaluating on GitHub.`}
                           </p>
-                          <a
-                            href={prResult?.commit_url || "https://github.com/pranavk-7117/secagent-cicd-demo/pull/1"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-teal-300 hover:text-teal-200 underline font-semibold text-[11px] mt-1"
-                          >
-                            Open Pull Request on GitHub →
-                          </a>
+                          {(() => {
+                            const meta = scan?.parsed?.pr_metadata || scan?.graph?.pr_metadata || {};
+                            const repo = prResult?.repository || meta.repository || "pranavk-7117/secagent-cicd-demo";
+                            const prNum = prResult?.pr_number || meta.pr_number;
+                            const branch = prResult?.branch || meta.branch;
+                            const targetUrl = prResult?.commit_url || (prNum ? `https://github.com/${repo}/pull/${prNum}` : branch ? `https://github.com/${repo}/tree/${branch}` : `https://github.com/${repo}/pulls`);
+                            return (
+                              <a
+                                href={targetUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-teal-300 hover:text-teal-200 underline font-semibold text-[11px] mt-1"
+                              >
+                                {prNum ? `Open Pull Request #${prNum} on GitHub →` : "Open on GitHub →"}
+                              </a>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
