@@ -17,12 +17,16 @@ import {
   Trash2,
   Maximize2,
   GitBranch,
+  Cpu,
+  ShieldAlert,
 } from "lucide-react";
 import { RiskGraph } from "@/components/RiskGraph";
 import { Shell } from "@/components/Shell";
 import { API_BASE, askScan, getScan, deleteScan } from "@/lib/api";
 import { Badge, Button, Card, Input, Table } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
+import { ProofOfFixPanel } from "@/components/ProofOfFixPanel";
+
 
 
 export default function ResultsPage({ params }: { params: { id: string } }) {
@@ -232,7 +236,21 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Action buttons */}
-            <div className="flex shrink-0 items-center gap-3 self-start">
+            <div className="flex shrink-0 flex-wrap items-center gap-3 self-start">
+              <Link href={`/scan/${scan.id}/twin`}>
+                <button className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/10 px-3.5 py-2 text-sm font-semibold text-teal-300 transition hover:bg-teal-500/20 shadow-lg shadow-teal-500/10">
+                  <Cpu className="h-4 w-4 text-teal-400" />
+                  Digital Twin &amp; Simulation
+                </button>
+              </Link>
+
+              <Link href={`/scan/${scan.id}/ci`}>
+                <button className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3.5 py-2 text-sm font-semibold text-purple-300 transition hover:bg-purple-500/20 shadow-lg shadow-purple-500/10">
+                  <GitBranch className="h-4 w-4 text-purple-400" />
+                  CI/CD Security Gate
+                </button>
+              </Link>
+
               {executedAgents.length === 0 ? (
                 <button
                   disabled
@@ -244,9 +262,9 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
                 <button
                   onClick={handleDownloadReport}
                   disabled={downloading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-sm font-semibold text-teal-400 transition hover:bg-teal-500/20 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700 disabled:opacity-60"
                 >
-                  <Download className="h-4 w-4" />
+                  <Download className="h-4 w-4 text-slate-400" />
                   {downloading ? "Downloading…" : "Download Report"}
                 </button>
               )}
@@ -259,6 +277,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
                 {deleting ? "Deleting…" : "Delete Scan"}
               </button>
             </div>
+
           </div>
         </div>
 
@@ -412,6 +431,9 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             </div>
           </div>
         </section>
+
+        {/* ── AI PROOF-OF-FIX REMEDIATION SECTION ──────────────────────── */}
+        <ProofOfFixPanel scanId={scan.id} />
 
         {/* ── FINDINGS + AI CHAT ────────────────────────────────────────── */}
         <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

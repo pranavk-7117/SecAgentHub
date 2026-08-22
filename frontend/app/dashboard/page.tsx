@@ -137,10 +137,16 @@ export default function DashboardPage() {
                       <span className="text-[12px] text-slate-500">{dateStr} · {timeStr}</span>
                       <div className="flex items-center justify-end gap-3">
                         {success
-                          ? <Link href={`/scan/${scan.id}/results`} className="flex items-center gap-1 text-[12px] font-bold text-teal-400 hover:text-teal-300 transition">Open <ArrowUpRight className="h-3.5 w-3.5"/></Link>
+                          ? (
+                              <>
+                                <Link href={`/scan/${scan.id}/results`} className="flex items-center gap-1 text-[12px] font-bold text-teal-400 hover:text-teal-300 transition">Open <ArrowUpRight className="h-3.5 w-3.5"/></Link>
+                                <Link href={`/scan/${scan.id}/twin`} className="flex items-center gap-1 text-[12px] font-semibold text-purple-400 hover:text-purple-300 transition">Twin</Link>
+                              </>
+                            )
                           : <span className="flex items-center gap-1 text-[12px] text-slate-600 cursor-not-allowed">Locked <Lock className="h-3.5 w-3.5"/></span>}
                         <button onClick={() => handleDelete(scan.id, scan.filename)} className="text-slate-600 hover:text-red-400 transition"><Trash2 className="h-4 w-4"/></button>
                       </div>
+
                     </div>
 
                     {/* ── Mobile card ── */}

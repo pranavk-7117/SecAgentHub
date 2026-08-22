@@ -47,6 +47,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     { href: "/scan/new",  label: "New Scan",   icon: Plus },
   ];
 
+
   return (
     <div className="min-h-screen bg-[#07090f] text-slate-100" style={{ fontFamily: "'Inter','system-ui',sans-serif" }}>
 
