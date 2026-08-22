@@ -281,6 +281,33 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
+        {/* ── 5-STAGE SECURITY WORKFLOW STRIP ──────────────────────── */}
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-4 flex items-center justify-between overflow-x-auto gap-2">
+          {[
+            { stage: "① UNDERSTAND",    desc: "IaC → Scan → Digital Twin",         active: true,  done: true  },
+            { stage: "② ATTACK",        desc: "Attack Paths → Evidence",            active: true,  done: true  },
+            { stage: "③ EXPERIMENT",    desc: "What-If → Counterfactual",           active: false, done: false },
+            { stage: "④ FIX",           desc: "Optimize → AI Patch → Verify",      active: false, done: false },
+            { stage: "⑤ ENFORCE",       desc: "Proof-of-Fix → CI/CD Gate",          active: false, done: false },
+          ].map((s, i) => (
+            <div key={i} className="flex items-center gap-2 shrink-0">
+              <div className={`flex flex-col items-center text-center px-4 py-2 rounded-xl border transition-all ${
+                s.done ? "border-teal-500/40 bg-teal-500/10" :
+                "border-white/[0.05] bg-white/[0.02] opacity-50"
+              }`}>
+                <p className={`text-[10px] font-black uppercase tracking-widest ${s.done ? "text-teal-400" : "text-slate-500"}`}>{s.stage}</p>
+                <p className="text-[9px] text-slate-500 mt-0.5 whitespace-nowrap">{s.desc}</p>
+              </div>
+              {i < 4 && <ChevronRight className="w-3 h-3 text-slate-700 shrink-0" />}
+            </div>
+          ))}
+          <Link href={`/scan/${scan.id}/twin`} className="shrink-0 ml-2">
+            <button className="text-[10px] font-bold text-teal-400 border border-teal-500/30 bg-teal-500/10 px-3 py-2 rounded-lg hover:bg-teal-500/20 transition whitespace-nowrap">
+              Open Twin →
+            </button>
+          </Link>
+        </div>
+
         {/* ── COMPLIANCE: AGENT BREAKDOWN ───────────────────────────── */}
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 

@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft, GitBranch, ArrowRight } from "lucide-react";
 import { Shell } from "@/components/Shell";
-import { Button } from "@/components/ui";
 import { DigitalTwinCanvas } from "@/components/DigitalTwinCanvas";
 import { SimulationPanel } from "@/components/SimulationPanel";
 import { PathDetailsPanel } from "@/components/PathDetailsPanel";
@@ -13,39 +12,96 @@ import { AIRemediationDiff } from "@/components/AIRemediationDiff";
 import { ProofOfFixPanel } from "@/components/ProofOfFixPanel";
 import { getScan } from "@/lib/api";
 
+interface AttackPath {
+  id: string;
+  steps: string[];
+  edges: Array<{ from: string; to: string; label: string; evidence: string; mitre: string }>;
+  score: number;
+  severity: string;
+  choke_point: string;
+  mitre_techniques: string[];
+}
+
+interface SelectedFix {
+  type: string;
+  label: string;
+  pathsBlocked: number;
+}
+
 export default function DigitalTwinPage({ params }: { params: { id: string } }) {
   const [scan, setScan] = useState<any>(null);
   const [mode, setMode] = useState<"CURRENT" | "HYPOTHETICAL">("CURRENT");
   const [hypoGraph, setHypoGraph] = useState<any>(null);
   const [selectedElement, setSelectedElement] = useState<any>(null);
-  const [elementType, setElementType] = useState<'node' | 'edge' | null>(null);
+  const [elementType, setElementType] = useState<"node" | "edge" | null>(null);
   const [showAIFix, setShowAIFix] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<"idle" | "verifying" | "verified" | "failed">("idle");
-  const [simulatedFindings, setSimulatedFindings] = useState<number | null>(null);
+  const [selectedFix, setSelectedFix] = useState<SelectedFix | null>(null);
+  const [remainingPathCount, setRemainingPathCount] = useState<number | null>(null);
 
   useEffect(() => {
     getScan(params.id).then(setScan);
   }, [params.id]);
 
-  const originalFailCount = scan?.findings_summary?.failed_count ?? scan?.raw_checkov_json?.results?.failed_checks?.length ?? 44;
+  // Real values derived from actual graph data — never hardcoded
+  const originalRiskScore = scan?.graph?.blast_radius_score ?? 0;
+  const allAttackPaths: AttackPath[] = scan?.graph?.attack_paths || [];
+  const totalAttackPaths = allAttackPaths.length;
+  const originalFailCount =
+    scan?.findings_summary?.failed_count ??
+    scan?.raw_checkov_json?.results?.failed_checks?.length ??
+    totalAttackPaths;
+
+  // Compute hypothetical risk score by removing paths blocked by selected fix
+  const hypotheticalRiskScore = useMemo(() => {
+    if (mode !== "HYPOTHETICAL" || !selectedFix || !totalAttackPaths) return null;
+    const remaining = allAttackPaths.filter(
+      (p) => p.choke_point !== selectedFix.type && !p.steps?.includes(selectedFix.type)
+    );
+    setRemainingPathCount(remaining.length);
+    return Math.round((remaining.length / Math.max(1, totalAttackPaths)) * originalRiskScore);
+  }, [mode, selectedFix, allAttackPaths, totalAttackPaths, originalRiskScore]);
 
   const handleSimulate = (mutation: any) => {
     setMode("HYPOTHETICAL");
     setShowAIFix(true);
     setVerifyStatus("idle");
-    setSimulatedFindings(0);
-    
-    // Create a modified hypothetical graph by eliminating critical risk edges
+
+    // Determine which choke_point this mutation targets
+    const mutationType = mutation?.id || "";
+    const fixType =
+      mutationType === "close_port_22" ? "aws_security_group" :
+      mutationType === "remove_wildcard" ? "aws_iam_role" :
+      mutationType === "remove_public_s3" ? "aws_s3_bucket" :
+      mutationType === "enable_encryption" ? "aws_ebs_volume" :
+      "";
+
+    // Find matching choke_point node from attack paths
+    const matchingPath = allAttackPaths.find((p) =>
+      fixType ? p.choke_point?.includes(fixType) : false
+    );
+    const chokeNode = matchingPath?.choke_point || fixType;
+
+    setSelectedFix({
+      type: chokeNode,
+      label: mutation?.label || "Security Fix",
+      pathsBlocked: allAttackPaths.filter(
+        (p) => p.choke_point === chokeNode || p.steps?.includes(chokeNode)
+      ).length,
+    });
+
+    // Build a real hypothetical graph by removing edges that use the blocked choke_point
     if (scan?.graph) {
-      const mockGraph = JSON.parse(JSON.stringify(scan.graph));
-      if (mockGraph.edges) {
-        mockGraph.edges = mockGraph.edges.filter((e: any) => e.risk !== "critical");
-      }
-      if (mockGraph.attack_paths) {
-        mockGraph.attack_paths = [];
-      }
-      mockGraph.blast_radius_score = 0;
-      setHypoGraph(mockGraph);
+      const hypothetical = JSON.parse(JSON.stringify(scan.graph));
+      hypothetical.edges = (hypothetical.edges || []).filter(
+        (e: any) => e.source !== chokeNode && e.target !== chokeNode
+      );
+      hypothetical.attack_paths = (hypothetical.attack_paths || []).filter(
+        (p: AttackPath) =>
+          p.choke_point !== chokeNode && !p.steps?.includes(chokeNode)
+      );
+      hypothetical.blast_radius_score = hypotheticalRiskScore ?? 0;
+      setHypoGraph(hypothetical);
     }
   };
 
@@ -54,45 +110,65 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
     setHypoGraph(null);
     setShowAIFix(false);
     setVerifyStatus("idle");
-    setSimulatedFindings(null);
+    setSelectedFix(null);
+    setRemainingPathCount(null);
   };
 
-  const handleElementClick = (type: 'node' | 'edge', data: any) => {
+  const handleElementClick = (type: "node" | "edge", data: any) => {
     setElementType(type);
     setSelectedElement(data);
   };
 
-  const handleGenerateFix = () => {
+  const handleGenerateFix = (fix?: { type: string; label: string; pathsBlocked: number }) => {
+    if (fix) {
+      setSelectedFix(fix);
+      // Compute real counterfactual for this fix
+      const remaining = allAttackPaths.filter(
+        (p) => p.choke_point !== fix.type && !p.steps?.includes(fix.type)
+      );
+      setRemainingPathCount(remaining.length);
+
+      if (scan?.graph) {
+        const hypothetical = JSON.parse(JSON.stringify(scan.graph));
+        hypothetical.edges = (hypothetical.edges || []).filter(
+          (e: any) => e.source !== fix.type && e.target !== fix.type
+        );
+        hypothetical.attack_paths = remaining;
+        hypothetical.blast_radius_score = Math.round(
+          (remaining.length / Math.max(1, totalAttackPaths)) * originalRiskScore
+        );
+        setHypoGraph(hypothetical);
+      }
+    }
     setMode("HYPOTHETICAL");
     setShowAIFix(true);
-    setSimulatedFindings(0);
-    if (scan?.graph) {
-      const mockGraph = JSON.parse(JSON.stringify(scan.graph));
-      if (mockGraph.edges) {
-        mockGraph.edges = mockGraph.edges.filter((e: any) => e.risk !== "critical");
-      }
-      if (mockGraph.attack_paths) {
-        mockGraph.attack_paths = [];
-      }
-      mockGraph.blast_radius_score = 0;
-      setHypoGraph(mockGraph);
-    }
+    setVerifyStatus("idle");
   };
 
   const handleVerify = () => {
     setVerifyStatus("verifying");
     setTimeout(() => {
       setVerifyStatus("verified");
-      setSimulatedFindings(0);
     }, 1500);
   };
 
-  if (!scan) return <Shell><div className="p-8 text-white">Loading Digital Twin...</div></Shell>;
+  if (!scan) {
+    return (
+      <Shell>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center space-y-2">
+            <div className="h-8 w-8 rounded-full border-2 border-teal-500/30 border-t-teal-400 animate-spin mx-auto" />
+            <p className="text-slate-400 text-sm">Loading Security Digital Twin…</p>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
 
   return (
     <Shell>
       <div style={{ background: "#07090f" }} className="min-h-screen px-4 py-6 md:px-8 md:py-8 space-y-6 flex flex-col">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -105,70 +181,86 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
               <h1 className="text-2xl font-black text-white flex items-center gap-2">
                 <GitBranch className="w-5 h-5 text-purple-400" /> Security Digital Twin
               </h1>
-              <p className="text-xs text-slate-400">Interactive infrastructure model &amp; counterfactual simulations.</p>
+              <p className="text-xs text-slate-400">
+                {scan.filename} — {totalAttackPaths} attack path{totalAttackPaths !== 1 ? "s" : ""} identified
+              </p>
             </div>
           </div>
-          
+
+          {/* Real risk score comparison */}
           <div className="flex items-center gap-3 text-sm font-semibold">
             <div className={`px-4 py-2 rounded-xl border ${mode === "CURRENT" ? "bg-blue-500/10 border-blue-500/30 text-blue-400" : "bg-white/[0.02] border-white/[0.05] text-slate-500"}`}>
-              Current Risk Score: {scan.graph?.blast_radius_score || 95}
+              Current Risk: {originalRiskScore > 0 ? originalRiskScore : "--"}
             </div>
             <ArrowRight className="w-4 h-4 text-slate-600" />
             <div className={`px-4 py-2 rounded-xl border transition-all ${mode === "HYPOTHETICAL" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]" : "bg-white/[0.02] border-white/[0.05] text-slate-500"}`}>
-              Hypothetical Risk Score: {mode === "HYPOTHETICAL" ? 0 : "--"}
+              Hypothetical: {mode === "HYPOTHETICAL" && hypotheticalRiskScore !== null ? hypotheticalRiskScore : "--"}
             </div>
+            {mode === "HYPOTHETICAL" && selectedFix && (
+              <div className="px-3 py-2 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-xs text-emerald-400 font-bold">
+                {selectedFix.pathsBlocked} path{selectedFix.pathsBlocked !== 1 ? "s" : ""} blocked
+              </div>
+            )}
           </div>
         </div>
 
         {/* Main Workspace */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-[600px]">
-          
-          {/* Left Panel: Simulation & Optimizer */}
+
+          {/* Left Panel */}
           <div className="col-span-1 space-y-6 flex flex-col h-full">
-            <SimulationPanel 
-              onSimulate={handleSimulate} 
-              onReset={handleReset} 
-              isSimulating={mode === "HYPOTHETICAL"} 
+            <SimulationPanel
+              onSimulate={handleSimulate}
+              onReset={handleReset}
+              isSimulating={mode === "HYPOTHETICAL"}
             />
             <div className="flex-1">
-              <RemediationOptimizer onGenerateFix={handleGenerateFix} />
+              <RemediationOptimizer
+                onGenerateFix={handleGenerateFix}
+                attackPaths={allAttackPaths}
+              />
             </div>
           </div>
 
           {/* Center: Graph Canvas */}
           <div className="col-span-2 relative h-full rounded-2xl shadow-xl shadow-black/40 overflow-hidden min-h-[500px]">
-            <DigitalTwinCanvas 
-              baseGraph={scan.graph} 
-              hypotheticalGraph={hypoGraph} 
-              mode={mode} 
+            <DigitalTwinCanvas
+              baseGraph={scan.graph}
+              hypotheticalGraph={hypoGraph}
+              mode={mode}
               onElementClick={handleElementClick}
             />
-            <PathDetailsPanel 
-              selectedElement={selectedElement} 
-              elementType={elementType} 
-              onClose={() => setSelectedElement(null)} 
+            <PathDetailsPanel
+              selectedElement={selectedElement}
+              elementType={elementType}
+              onClose={() => { setSelectedElement(null); setElementType(null); }}
             />
           </div>
 
-          {/* Right Panel: AI Fix & Proof */}
+          {/* Right Panel */}
           <div className="col-span-1 space-y-6 flex flex-col h-full">
             {showAIFix ? (
               <>
                 <AIRemediationDiff />
-                <ProofOfFixPanel 
+                <ProofOfFixPanel
                   scanId={params.id}
                   originalFailedCount={originalFailCount}
-                  status={verifyStatus} 
-                  onVerify={handleVerify} 
+                  status={verifyStatus}
+                  onVerify={handleVerify}
                 />
               </>
             ) : (
-              <div className="rounded-2xl border border-white/[0.05] border-dashed bg-white/[0.01] p-5 flex flex-col items-center justify-center text-center h-full text-slate-500 min-h-[300px]">
-                <p className="text-sm">Click "Simulate Fix" or "Generate AI Fix" to test counterfactual changes and view the verified patch.</p>
+              <div className="rounded-2xl border border-white/[0.05] border-dashed bg-white/[0.01] p-5 flex flex-col items-center justify-center text-center h-full text-slate-500 min-h-[300px] space-y-3">
+                <GitBranch className="w-8 h-8 text-slate-700" />
+                <div>
+                  <p className="text-sm font-semibold text-slate-400">Simulation Ready</p>
+                  <p className="text-xs text-slate-600 mt-1">Select a fix from the Choke-Point Optimizer or click Simulate Fix to test counterfactual changes.</p>
+                </div>
               </div>
             )}
           </div>
         </div>
+
       </div>
     </Shell>
   );
