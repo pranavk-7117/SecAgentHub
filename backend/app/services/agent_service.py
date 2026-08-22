@@ -187,11 +187,14 @@ def _groq_or_fallback(prompt: str, system: str) -> str:
     settings = get_settings()
     if settings.groq_api_key:
         models = [
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.6-27b",
+            "groq/compound",
+            "groq/compound-mini",
             "llama-3.3-70b-versatile",
             "llama-3.1-70b-versatile",
             "llama-3.1-8b-instant",
-            "llama3-70b-8192",
-            "mixtral-8x7b-32768",
         ]
         for model in models:
             try:
@@ -200,6 +203,7 @@ def _groq_or_fallback(prompt: str, system: str) -> str:
                         "model": model,
                         "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
                         "temperature": 0.2,
+                        "max_tokens": 1024,
                     }
                 ).encode("utf-8")
                 request = urllib.request.Request(
@@ -208,19 +212,21 @@ def _groq_or_fallback(prompt: str, system: str) -> str:
                     headers={
                         "Authorization": f"Bearer {settings.groq_api_key}",
                         "Content-Type": "application/json",
-                        "User-Agent": "SecAgentHub/1.0",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     },
                     method="POST",
                 )
-                with urllib.request.urlopen(request, timeout=30) as response:
+                with urllib.request.urlopen(request, timeout=25) as response:
                     completion = json.loads(response.read().decode("utf-8"))
                 content = completion["choices"][0]["message"]["content"]
                 if content:
+                    if "<think>" in content and "</think>" in content:
+                        content = content.split("</think>")[-1].strip()
                     return content
             except urllib.error.HTTPError as exc:
-                if exc.code == 404:
-                    continue  # Try next model if model not found
-                break
+                if exc.code in (404, 400):
+                    continue  # Try next model if model not found or unsupported
+                continue
             except Exception:
                 continue
 

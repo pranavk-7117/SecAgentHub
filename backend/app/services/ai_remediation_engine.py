@@ -369,11 +369,14 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str | None:
         return None
 
     models = [
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.6-27b",
+        "groq/compound",
+        "groq/compound-mini",
         "llama-3.3-70b-versatile",
         "llama-3.1-70b-versatile",
         "llama-3.1-8b-instant",
-        "llama3-70b-8192",
-        "mixtral-8x7b-32768",
     ]
     for model in models:
         try:
@@ -385,7 +388,6 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str | None:
                 ],
                 "temperature": 0.15,
                 "max_tokens": 4096,
-                "response_format": {"type": "json_object"},
             }).encode("utf-8")
 
             request = urllib.request.Request(
@@ -394,7 +396,7 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str | None:
                 headers={
                     "Authorization": f"Bearer {settings.groq_api_key}",
                     "Content-Type": "application/json",
-                    "User-Agent": "SecAgentHub/2.0-ai-proof-of-fix",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 },
                 method="POST",
             )
@@ -403,11 +405,13 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str | None:
 
             content = completion["choices"][0]["message"]["content"]
             if content:
+                if "<think>" in content and "</think>" in content:
+                    content = content.split("</think>")[-1].strip()
                 return content
         except urllib.error.HTTPError as exc:
-            if exc.code == 404:
+            if exc.code in (404, 400):
                 continue
-            break
+            continue
         except Exception:
             continue
 
