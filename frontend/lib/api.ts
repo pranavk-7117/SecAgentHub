@@ -153,3 +153,19 @@ export interface ProofOfFixState {
   fixLabel: string;
   verifiedAt: string;
 }
+
+export async function applyPRFix(scanId: string, remediatedHcl?: string, githubToken?: string) {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE}/api/v1/cicd/apply-pr-fix`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders },
+    body: JSON.stringify({
+      scan_id: scanId,
+      remediated_hcl: remediatedHcl,
+      github_token: githubToken,
+    }),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
