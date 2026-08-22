@@ -23,7 +23,8 @@ function riskTone(risk = 0) {
 }
 
 function ResourceNode({ data }: NodeProps) {
-  const risk  = Number(data.risk || 0);
+  const isRemediated = Boolean(data.isRemediated);
+  const risk  = isRemediated ? 10 : Number(data.risk || 0);
   const tone  = riskTone(risk);
   const kind  = String(data.kind || "resource");
   const isChanged = data.isChanged;
@@ -34,7 +35,7 @@ function ResourceNode({ data }: NodeProps) {
               : Box;
 
   return (
-    <div className={`w-48 rounded-xl border ${tone.border} ${tone.bg} p-3 shadow-xl shadow-black/50 backdrop-blur ${isChanged ? 'ring-2 ring-emerald-500/50 ring-offset-2 ring-offset-[#0a0d14]' : ''}`}>
+    <div className={`w-48 rounded-xl border ${tone.border} ${tone.bg} p-3 shadow-xl shadow-black/50 backdrop-blur transition-all duration-300 ${isRemediated ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-[#07090f] shadow-[0_0_25px_rgba(16,185,129,0.35)]' : (isChanged ? 'ring-2 ring-emerald-500/50 ring-offset-2 ring-offset-[#0a0d14]' : '')}`}>
       <Handle className="!h-2 !w-2 !border-[#07090f] !bg-slate-600" type="target" position={Position.Left} />
       <div className="flex items-start gap-2.5">
         <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${tone.iconBg} border ${tone.border}`}>
@@ -47,7 +48,8 @@ function ResourceNode({ data }: NodeProps) {
       </div>
       <div className="mt-2.5 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
-          <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />{tone.label}
+          <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+          {isRemediated ? "Remediated ✓" : tone.label}
         </span>
         <span className={`text-base font-black ${tone.text}`}>{risk}</span>
       </div>
@@ -173,13 +175,13 @@ export function DigitalTwinCanvas({
         },
         style: {
           stroke: strokeColor,
-          strokeWidth: isBroken ? 2 : (edge.risk === "critical" ? 2.4 : 1.5),
-          strokeDasharray: isBroken ? "5,5" : undefined,
-          opacity: isBroken ? 0.6 : 1,
+          strokeWidth: isBroken ? 2.5 : (edge.risk === "critical" ? 2.4 : 1.5),
+          strokeDasharray: isBroken ? "6,4" : undefined,
+          opacity: isBroken ? 0.9 : 1,
         },
-        label: isBroken ? "Broken Path" : (isNew ? "New Risk" : (edge.evidence ? "Has Evidence" : "")),
-        labelStyle: { fill: isBroken ? "#10b981" : (isNew ? "#ef4444" : "#94a3b8"), fontWeight: 700, fontSize: 10 },
-        labelBgStyle: { fill: "rgba(7,9,15,0.90)", fillOpacity: 1 },
+        label: isBroken ? "Path Severed ✓" : (isNew ? "New Risk" : (edge.evidence ? "Has Evidence" : "")),
+        labelStyle: { fill: isBroken ? "#34d399" : (isNew ? "#ef4444" : "#94a3b8"), fontWeight: 700, fontSize: 10 },
+        labelBgStyle: { fill: "rgba(7,9,15,0.95)", fillOpacity: 1 },
       };
     });
   }, [currentGraph, baseGraph, hypotheticalGraph, mode]);

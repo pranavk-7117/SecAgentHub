@@ -82,25 +82,66 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
     );
     const chokeNode = matchingPath?.choke_point || fixType;
 
+    // Collect all nodes targeted by this fix
+    const targetNodeIds = new Set<string>();
+    if (scan?.graph?.nodes) {
+      scan.graph.nodes.forEach((n: any) => {
+        if (
+          (fixType && (n.id.includes(fixType) || n.data?.kind?.includes(fixType))) ||
+          (chokeNode && (n.id === chokeNode || n.id.includes(chokeNode)))
+        ) {
+          targetNodeIds.add(n.id);
+        }
+      });
+    }
+    if (chokeNode) targetNodeIds.add(chokeNode);
+
+    const pathsBlockedCount = allAttackPaths.filter(
+      (p) => targetNodeIds.has(p.choke_point) || p.steps?.some((s) => targetNodeIds.has(s))
+    ).length;
+
     setSelectedFix({
       type: chokeNode,
       label: mutation?.label || "Security Fix",
-      pathsBlocked: allAttackPaths.filter(
-        (p) => p.choke_point === chokeNode || p.steps?.includes(chokeNode)
-      ).length,
+      pathsBlocked: pathsBlockedCount > 0 ? pathsBlockedCount : 1,
     });
 
     // Build a real hypothetical graph by removing edges that use the blocked choke_point
     if (scan?.graph) {
       const hypothetical = JSON.parse(JSON.stringify(scan.graph));
-      hypothetical.edges = (hypothetical.edges || []).filter(
-        (e: any) => e.source !== chokeNode && e.target !== chokeNode
-      );
-      hypothetical.attack_paths = (hypothetical.attack_paths || []).filter(
+      
+      // Filter out edges that touch target nodes
+      hypothetical.edges = (hypothetical.edges || []).filter((e: any) => {
+        if (targetNodeIds.has(e.source) || targetNodeIds.has(e.target)) return false;
+        if (fixType === "aws_security_group" && (e.source === "internet" || e.target.includes("security_group"))) return false;
+        if (fixType === "aws_iam_role" && (e.source.includes("iam") || e.target.includes("iam"))) return false;
+        if (fixType === "aws_s3_bucket" && (e.source.includes("s3") || e.target.includes("s3"))) return false;
+        return true;
+      });
+
+      // Mark targeted nodes as remediated with low risk
+      hypothetical.nodes = (hypothetical.nodes || []).map((n: any) => {
+        if (targetNodeIds.has(n.id) || (fixType && (n.id.includes(fixType) || n.data?.kind?.includes(fixType)))) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              risk: 10,
+              isRemediated: true,
+            }
+          };
+        }
+        return n;
+      });
+
+      const remainingPaths = (hypothetical.attack_paths || []).filter(
         (p: AttackPath) =>
-          p.choke_point !== chokeNode && !p.steps?.includes(chokeNode)
+          !targetNodeIds.has(p.choke_point) && !p.steps?.some((s) => targetNodeIds.has(s))
       );
-      hypothetical.blast_radius_score = hypotheticalRiskScore ?? 0;
+      hypothetical.attack_paths = remainingPaths;
+      hypothetical.blast_radius_score = Math.round(
+        (remainingPaths.length / Math.max(1, totalAttackPaths || 1)) * originalRiskScore
+      );
       setHypoGraph(hypothetical);
     }
   };
@@ -122,20 +163,44 @@ export default function DigitalTwinPage({ params }: { params: { id: string } }) 
   const handleGenerateFix = (fix?: { type: string; label: string; pathsBlocked: number }) => {
     if (fix) {
       setSelectedFix(fix);
+      
+      const targetNodeIds = new Set<string>();
+      targetNodeIds.add(fix.type);
+      if (scan?.graph?.nodes) {
+        scan.graph.nodes.forEach((n: any) => {
+          if (n.id === fix.type || n.id.includes(fix.type)) {
+            targetNodeIds.add(n.id);
+          }
+        });
+      }
+
       // Compute real counterfactual for this fix
       const remaining = allAttackPaths.filter(
-        (p) => p.choke_point !== fix.type && !p.steps?.includes(fix.type)
+        (p) => !targetNodeIds.has(p.choke_point) && !p.steps?.some((s) => targetNodeIds.has(s))
       );
       setRemainingPathCount(remaining.length);
 
       if (scan?.graph) {
         const hypothetical = JSON.parse(JSON.stringify(scan.graph));
         hypothetical.edges = (hypothetical.edges || []).filter(
-          (e: any) => e.source !== fix.type && e.target !== fix.type
+          (e: any) => !targetNodeIds.has(e.source) && !targetNodeIds.has(e.target)
         );
+        hypothetical.nodes = (hypothetical.nodes || []).map((n: any) => {
+          if (targetNodeIds.has(n.id)) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                risk: 10,
+                isRemediated: true,
+              }
+            };
+          }
+          return n;
+        });
         hypothetical.attack_paths = remaining;
         hypothetical.blast_radius_score = Math.round(
-          (remaining.length / Math.max(1, totalAttackPaths)) * originalRiskScore
+          (remaining.length / Math.max(1, totalAttackPaths || 1)) * originalRiskScore
         );
         setHypoGraph(hypothetical);
       }
