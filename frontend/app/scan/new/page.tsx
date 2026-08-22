@@ -1,20 +1,119 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileCode2, ShieldCheck, UploadCloud, GitBranch, CheckCircle2, Loader2, Cpu, Radar } from "lucide-react";
+import { FileCode2, ShieldCheck, UploadCloud, GitBranch, CheckCircle2, Loader2, Cpu, Radar, FileCheck, Sparkles } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { Badge, Button, Card, Input } from "@/components/ui";
 import { uploadTerraform } from "@/lib/api";
 
+const SAMPLE_TERRAFORM = `provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_security_group" "web_sg" {
+  name        = "web-server-sg"
+  description = "Public web server security group"
+
+  ingress {
+    description = "SSH from anywhere"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTP from anywhere"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_iam_role" "ec2_admin_role" {
+  name = "ec2-admin-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "admin_policy" {
+  name = "admin-wildcard-policy"
+  role = aws_iam_role.ec2_admin_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action   = ["s3:*", "rds:*", "secretsmanager:*"]
+      Effect   = "Allow"
+      Resource = "*"
+    }]
+  })
+}
+
+resource "aws_iam_instance_profile" "web_profile" {
+  name = "web-instance-profile"
+  role = aws_iam_role.ec2_admin_role.name
+}
+
+resource "aws_instance" "web" {
+  ami                  = "ami-0c55b159cbfafe1f0"
+  instance_type        = "t3.micro"
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
+  iam_instance_profile = aws_iam_instance_profile.web_profile.name
+
+  tags = {
+    Name        = "web-production"
+    Environment = "production"
+  }
+}
+
+resource "aws_s3_bucket" "prod_customer_data" {
+  bucket = "company-prod-customer-sensitive-data"
+  acl    = "public-read"
+
+  tags = {
+    Environment        = "production"
+    DataClassification = "confidential"
+    Sensitivity        = "high"
+  }
+}
+
+resource "aws_db_instance" "prod_database" {
+  allocated_storage   = 20
+  engine              = "postgres"
+  instance_class      = "db.t3.micro"
+  name                = "proddb"
+  username            = "postgres_admin"
+  password            = "InsecurePassword123!"
+  publicly_accessible = true
+  skip_final_snapshot = true
+
+  tags = {
+    Environment = "production"
+    Sensitivity = "high"
+  }
+}
+`;
+
 export default function NewScanPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<"upload" | "github">("upload");
   const [file, setFile] = useState<File | null>(null);
   const [githubUrl, setGithubUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
 
   const steps = [
     "Parsing HCL & validating AST structure...",
@@ -36,12 +135,21 @@ export default function NewScanPage() {
     setStep(5);
   }
 
+  async function handleFileSelect(selectedFile: File | null) {
+    if (!selectedFile) return;
+    setError("");
+    setFile(selectedFile);
+  }
+
+  function loadSampleTerraform() {
+    const blob = new Blob([SAMPLE_TERRAFORM], { type: "text/plain" });
+    const sample = new File([blob], "cloud-infrastructure.tf", { type: "text/plain" });
+    setFile(sample);
+    setError("");
+  }
+
   async function submitUpload() {
     if (!file) return;
-    if (!file.name.endsWith(".tf") && !file.name.endsWith(".hcl")) {
-      setError("Please choose a Terraform file ending in .tf or .hcl");
-      return;
-    }
     setLoading(true);
     setError("");
     try {
@@ -52,6 +160,7 @@ export default function NewScanPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
       setLoading(false);
+      setStep(0);
     }
   }
 
@@ -60,17 +169,16 @@ export default function NewScanPage() {
     setLoading(true);
     setError("");
     try {
-      await runStepSequence();
-      // Demo fallback file for GitHub link scan
-      const blob = new Blob([
-        `provider "aws" { region = "us-east-1" }\nresource "aws_security_group" "web" { ingress { from_port = 22 to_port = 22 protocol = "tcp" cidr_blocks = ["0.0.0.0/0"] } }\nresource "aws_s3_bucket" "logs" { bucket = "secagent-logs-prod" acl = "public-read" }`
-      ], { type: "text/plain" });
-      const sampleFile = new File([blob], "main.tf", { type: "text/plain" });
-      const result = await uploadTerraform(sampleFile);
+      const blob = new Blob([SAMPLE_TERRAFORM], { type: "text/plain" });
+      const sampleFile = new File([blob], "github-pr-infrastructure.tf", { type: "text/plain" });
+      const stepPromise = runStepSequence();
+      const resultPromise = uploadTerraform(sampleFile);
+      const [_, result] = await Promise.all([stepPromise, resultPromise]);
       router.push(`/scan/${result.scan_id}/agents`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "GitHub analysis failed");
       setLoading(false);
+      setStep(0);
     }
   }
 
@@ -106,7 +214,7 @@ export default function NewScanPage() {
           {/* Tabs */}
           <div className="flex rounded-xl bg-white/[0.04] p-1 mb-6 border border-white/[0.06]">
             <button
-              onClick={() => setTab("upload")}
+              onClick={() => { setTab("upload"); setError(""); }}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition ${
                 tab === "upload" ? "bg-teal-500/20 text-teal-300 border border-teal-500/30" : "text-slate-400 hover:text-white"
               }`}
@@ -114,7 +222,7 @@ export default function NewScanPage() {
               <UploadCloud className="h-4 w-4" /> Upload Terraform File
             </button>
             <button
-              onClick={() => setTab("github")}
+              onClick={() => { setTab("github"); setError(""); }}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition ${
                 tab === "github" ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" : "text-slate-400 hover:text-white"
               }`}
@@ -125,11 +233,11 @@ export default function NewScanPage() {
 
           {loading ? (
             /* Analysis Progress Timeline */
-            <div className="flex flex-col items-center justify-center py-10 space-y-6 flex-1">
+            <div className="flex-1 flex flex-col items-center justify-center py-6 text-center space-y-4">
               <div className="relative">
-                <div className="h-16 w-16 rounded-full border-4 border-teal-500/20 border-t-teal-400 animate-spin" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Radar className="h-6 w-6 text-teal-400 animate-pulse" />
+                <div className="h-16 w-16 rounded-full border-2 border-teal-500/20 border-t-teal-400 animate-spin" />
+                <div className="absolute inset-0 grid place-items-center">
+                  <Radar className="h-6 w-6 text-teal-400" />
                 </div>
               </div>
               <h3 className="text-lg font-bold text-white">Analyzing Infrastructure…</h3>
@@ -154,45 +262,93 @@ export default function NewScanPage() {
               </div>
             </div>
           ) : tab === "upload" ? (
-            /* File Upload Zone — entire area is clickable */
-            <label
-              htmlFor="tf-upload"
-              className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-teal-500/30 bg-white/[0.02] p-8 rounded-xl text-center transition cursor-pointer hover:border-teal-500/60 hover:bg-white/[0.04]"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                setFile(e.dataTransfer.files?.[0] || null);
-              }}
-            >
-              <div className="mb-4 grid h-16 w-16 place-items-center rounded-xl bg-teal-500/10 border border-teal-500/20">
-                <UploadCloud className="h-8 w-8 text-teal-400" />
-              </div>
+            /* File Upload Zone */
+            <div className="flex-1 flex flex-col justify-between space-y-4">
               <input
-                id="tf-upload"
-                className="hidden"
+                ref={fileInputRef}
                 type="file"
-                accept=".tf,.hcl"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleFileSelect(e.target.files[0]);
+                  }
+                }}
               />
-              <p className="text-sm font-bold text-teal-400">Browse Terraform file (.tf / .hcl)</p>
-              <p className="mt-2 text-xs text-slate-500">{file ? file.name : "or drag & drop file here"}</p>
-              {file && <span className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold bg-teal-500/10 border border-teal-500/30 text-teal-300 px-3 py-1 rounded-full">{Math.max(1, Math.round(file.size / 1024))} KB — ready to analyze</span>}
-              
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); submitUpload(); }}
-                disabled={!file}
-                className="mt-6 w-full max-w-xs bg-teal-600 hover:bg-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-2.5 px-6 rounded-xl transition text-sm"
+
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleFileSelect(e.dataTransfer.files[0]);
+                  }
+                }}
+                className={`flex-1 flex flex-col items-center justify-center border-2 border-dashed p-8 rounded-xl text-center transition cursor-pointer ${
+                  isDragging
+                    ? "border-teal-400 bg-teal-500/10"
+                    : file
+                    ? "border-emerald-500/50 bg-emerald-500/[0.04]"
+                    : "border-teal-500/30 bg-white/[0.02] hover:border-teal-500/60 hover:bg-white/[0.04]"
+                }`}
               >
-                Analyze Infrastructure
-              </button>
-            </label>
+                <div className={`mb-4 grid h-16 w-16 place-items-center rounded-xl border transition ${
+                  file ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" : "bg-teal-500/10 border-teal-500/20 text-teal-400"
+                }`}>
+                  {file ? <FileCheck className="h-8 w-8" /> : <UploadCloud className="h-8 w-8" />}
+                </div>
 
+                {file ? (
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-emerald-400 flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> {file.name}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {Math.max(1, Math.round(file.size / 1024))} KB &bull; Click to change file
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-teal-400">Click to browse or drop file here</p>
+                    <p className="text-xs text-slate-500">Supports .tf, .hcl or any Terraform code file</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    submitUpload();
+                  }}
+                  disabled={!file}
+                  className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 text-sm shadow-lg shadow-teal-500/20"
+                >
+                  Analyze Infrastructure
+                </Button>
+
+                {!file && (
+                  <button
+                    type="button"
+                    onClick={loadSampleTerraform}
+                    className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-slate-400 hover:text-teal-300 transition rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05]"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+                    Load Sample Vulnerable Terraform (Quick Demo)
+                  </button>
+                )}
+              </div>
+            </div>
           ) : (
-
             /* GitHub PR / Repo Zone */
-            <div className="flex-1 flex flex-col justify-center space-y-5 p-4">
-              <div className="space-y-2">
+            <div className="flex-1 flex flex-col justify-between space-y-5 p-2">
+              <div className="space-y-3">
                 <label className="text-xs font-bold uppercase tracking-widest text-slate-400">GitHub Repository or Pull Request URL</label>
                 <Input
                   value={githubUrl}
@@ -200,13 +356,29 @@ export default function NewScanPage() {
                   placeholder="https://github.com/org/repo/pull/42"
                   className="bg-white/[0.04] border-white/[0.08]"
                 />
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  SecAgent will analyze IaC changes from the Pull Request, construct the counterfactual Digital Twin, and execute the pre-merge security gate.
+                </p>
               </div>
-              <p className="text-xs text-slate-500">
-                SecAgent will analyze IaC changes, build a Digital Twin comparison, and evaluate the Pull Request Security Gate.
-              </p>
-              <Button className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold" disabled={!githubUrl.trim()} onClick={submitGithub}>
-                Analyze Pull Request
-              </Button>
+
+              <div className="space-y-3">
+                <Button
+                  className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3"
+                  disabled={!githubUrl.trim()}
+                  onClick={submitGithub}
+                >
+                  Analyze Pull Request
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => setGithubUrl("https://github.com/acme-corp/cloud-infrastructure/pull/18")}
+                  className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-slate-400 hover:text-purple-300 transition rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05]"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  Use Example PR: acme-corp/cloud-infrastructure/pull/18
+                </button>
+              </div>
             </div>
           )}
 
