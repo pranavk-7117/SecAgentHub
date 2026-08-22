@@ -110,7 +110,11 @@ class PostgresRepository:
         import psycopg
         from psycopg.rows import dict_row
 
-        return psycopg.connect(self.database_url, row_factory=dict_row)
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        return psycopg.connect(url, row_factory=dict_row)
+
 
     def _init_db(self) -> None:
         sql = """
