@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: secagent-hub-api
+    runtime: python
+    rootDir: backend
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ALGORAND_NETWORK
+        value: testnet
+      - key: ALLOW_MOCK_PAYMENTS
+        value: "false"
+      - key: ALGOD_NODE_URL
+        sync: false
+      - key: ALGOD_TOKEN
+        sync: false
+      - key: INDEXER_URL
+        sync: false
+      - key: USDC_ASA_ID
+        sync: false
+      - key: FACILITATOR_ADDRESS
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: INTERNAL_API_SECRET
+        generateValue: true
