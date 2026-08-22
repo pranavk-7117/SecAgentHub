@@ -85,6 +85,7 @@ class ResilientGoPlausibleFacilitator {
   async settle(paymentPayload: PaymentPayload, paymentRequirements: PaymentRequirements): Promise<SettleResponse> {
     try {
       const res = await this.client.settle(paymentPayload, paymentRequirements);
+      logToFile("✅ GoPlausible Facilitator settle SUCCESS: " + JSON.stringify({ transaction: (res as any).transaction, network: (res as any).network }));
       return {
         ...res,
         // @ts-ignore
@@ -92,20 +93,22 @@ class ResilientGoPlausibleFacilitator {
       };
     } catch (error) {
       const cause = error && (error as any).cause ? ((error as any).cause.stack || (error as any).cause.message || JSON.stringify((error as any).cause)) : "none";
-      logToFile("Facilitator settle failed: " + (error instanceof Error ? error.stack : String(error)) + " | Cause: " + cause);
+      logToFile("⚠️ GoPlausible Facilitator settle failed (switching to local backup): " + (error instanceof Error ? error.message : String(error)) + " | Cause: " + cause);
       try {
         const res = await this.localSettle(paymentPayload, paymentRequirements);
         if (!res.success) {
-          logToFile("localSettle success was false: " + JSON.stringify(res));
+          logToFile("❌ localSettle success was false: " + JSON.stringify(res));
+        } else {
+          logToFile("✅ Local backup verifier settle SUCCESS (GoPlausible was unavailable): " + JSON.stringify({ transaction: res.transaction }));
         }
         return {
           ...res,
           // @ts-ignore
-          verified_by: "Local Backup Verifier"
+          verified_by: "Local Backup Verifier (GoPlausible unavailable)"
         };
       } catch (localError) {
         const localCause = localError && (localError as any).cause ? ((localError as any).cause.stack || (localError as any).cause.message || JSON.stringify((localError as any).cause)) : "none";
-        logToFile("localSettle exception: " + (localError instanceof Error ? localError.stack : String(localError)) + " | Cause: " + localCause);
+        logToFile("❌ localSettle exception: " + (localError instanceof Error ? localError.stack : String(localError)) + " | Cause: " + localCause);
         throw localError;
       }
     }

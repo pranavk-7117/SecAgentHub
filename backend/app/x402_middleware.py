@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import secrets
@@ -88,19 +88,43 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
             "verified_by": "GoPlausible x402 Facilitator",
         }
 
-    # Live verification via Algorand Indexer (testnet first, then mainnet)
-    networks = ["testnet", "mainnet"]
+    # Verification tier list:
+    # 1. GoPlausible Facilitator Indexer (primary — fastest, dedicated for x402 payments)
+    # 2. Algonode Indexer testnet/mainnet (fallback)
+    verification_tiers = [
+        {
+            "name": "GoPlausible Facilitator",
+            "net": "testnet",
+            "idx_url": "https://testnet-idx.goplausible.xyz",
+            "usdc_id": 10458941,
+            "primary": True,
+        },
+        {
+            "name": "Algonode Indexer",
+            "net": "testnet",
+            "idx_url": "https://testnet-idx.algonode.cloud",
+            "usdc_id": 10458941,
+            "primary": False,
+        },
+        {
+            "name": "Algonode Indexer",
+            "net": "mainnet",
+            "idx_url": "https://mainnet-idx.algonode.cloud",
+            "usdc_id": 31566704,
+            "primary": False,
+        },
+    ]
+
     last_error = None
 
-    for net in networks:
-        if net == "mainnet":
-            idx_url = "https://mainnet-idx.algonode.cloud"
-            usdc_id = 31566704
-        else:
-            idx_url = "https://testnet-idx.algonode.cloud"
-            usdc_id = 10458941
+    for tier in verification_tiers:
+        idx_url = tier["idx_url"]
+        net = tier["net"]
+        usdc_id = tier["usdc_id"]
+        verified_by = f"{tier['name']} ({'primary' if tier['primary'] else 'fallback'})"
 
-        for attempt in range(3):
+        max_attempts = 5 if tier["primary"] else 3
+        for attempt in range(max_attempts):
             try:
                 from algosdk.v2client import indexer
                 client = indexer.IndexerClient("", idx_url)
@@ -143,10 +167,10 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
 
                 return {
                     "ok": True,
-                    "reason": f"payment verified on {net}",
+                    "reason": f"payment verified via {verified_by} on {net}",
                     "tx_id": tx_id,
                     "network": net,
-                    "verified_by": "GoPlausible x402 Facilitator",
+                    "verified_by": verified_by,
                     "confirmed_round": tx.get("confirmed-round"),
                 }
             except Exception as exc:
@@ -155,9 +179,10 @@ async def inspect_algorand_payment(tx_id: str, amount: int, challenge: str) -> d
 
     return {
         "ok": False,
-        "reason": f"payment could not be verified on testnet or mainnet. Last error: {last_error}",
+        "reason": f"payment could not be verified via GoPlausible or Algonode indexer. Last error: {last_error}",
         "tx_id": tx_id,
     }
+
 
 
 def _extract_tx_id(authorization: str | None, proof: str | None) -> str | None:
