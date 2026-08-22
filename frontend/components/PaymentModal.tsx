@@ -52,7 +52,7 @@ export function PaymentModal({
       const algodUrl = process.env.NEXT_PUBLIC_ALGOD_NODE_URL || "https://testnet-api.algonode.cloud";
       const token = process.env.NEXT_PUBLIC_ALGOD_TOKEN || "";
       const assetId = Number(process.env.NEXT_PUBLIC_USDC_ASA_ID || "10458941");
-      const receiver = process.env.NEXT_PUBLIC_FACILITATOR_ADDRESS || request.pay_to_address || "2657H2Q5B7N34P574Y2XUODR6L2N3W53U3BQQJGY4I5D6K6N6Y6P4T5X7A";
+      const receiver = process.env.NEXT_PUBLIC_FACILITATOR_ADDRESS || request.pay_to_address || "PT6VVN7OZ3TVISZ6C6AMQKS2LFLKPI5FFY5L5WCMZO4WKCIZL735ZNUWXU";
 
 
       const wallet = getPeraWallet();

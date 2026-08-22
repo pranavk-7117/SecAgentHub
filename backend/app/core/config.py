@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     algod_token: str = ""
     indexer_url: str = ""
     usdc_asa_id: int = 0
-    facilitator_address: str = "TESTNET_FACILITATOR_ADDRESS"
+    facilitator_address: str = "PT6VVN7OZ3TVISZ6C6AMQKS2LFLKPI5FFY5L5WCMZO4WKCIZL735ZNUWXU"
     facilitator_mnemonic: str = ""
     groq_api_key: str = ""
     supabase_url: str = ""
