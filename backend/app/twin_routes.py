@@ -3,7 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.main import get_current_user_id
+from app.core.auth import get_current_user_id
+
 from app.services.twin_service import (
     build_twin,
     simulate_mutation,
