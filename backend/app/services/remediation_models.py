@@ -158,7 +158,15 @@ class AttackPathComparison(BaseModel):
     new_paths: list[list[str]] = Field(default_factory=list)
     blast_radius_before: int = 0
     blast_radius_after: int = 0
+class ComplianceVerificationResult(BaseModel):
+    """Deterministic before/after compliance verification."""
 
+    original_controls: list[str] = Field(default_factory=list)
+    resolved_controls: list[str] = Field(default_factory=list)
+    remaining_controls: list[str] = Field(default_factory=list)
+
+    passed: bool = True
+    detail: str = ""
 
 class ValidationStep(BaseModel):
     """A single step in the verification pipeline."""
@@ -166,13 +174,15 @@ class ValidationStep(BaseModel):
     status: str  # "passed", "failed", "skipped"
     detail: str = ""
 
-
 class ValidationResult(BaseModel):
     """Complete result of the verification pipeline."""
-    overall_status: str  # "PASSED" or "FAILED"
+    overall_status: str
     hcl_validation: HCLValidationResult
     checkov_rescan: CheckovRescanResult
     attack_path_comparison: AttackPathComparison
+    compliance_verification: ComplianceVerificationResult = Field(
+        default_factory=ComplianceVerificationResult
+    )
     regression_check_passed: bool = False
     steps: list[ValidationStep] = Field(default_factory=list)
     failure_reasons: list[str] = Field(default_factory=list)
