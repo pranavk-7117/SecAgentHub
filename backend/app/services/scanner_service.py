@@ -59,12 +59,15 @@ def _normalize_checkov_json(payload: Any) -> dict[str, Any]:
         return {"scanner": "checkov", "summary": summaries, "results": {"failed_checks": _enrich_findings(failed), "passed_checks": passed}}
     return {"scanner": "checkov", "results": {"failed_checks": [], "passed_checks": []}, "raw": str(payload)}
 
-
-def _enrich_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+ def _enrich_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for finding in findings:
         if not finding.get("severity"):
             finding["severity"] = _infer_severity(finding)
+
         finding["category"] = _infer_category(finding)
+
+        enrich_with_compliance(finding)
+
     return findings
 
 
