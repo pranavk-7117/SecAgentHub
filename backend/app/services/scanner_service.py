@@ -6,6 +6,7 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+from app.services.compliance_service import enrich_with_compliance
 
 
 def run_checkov(raw_hcl: str, filename: str = "main.tf") -> dict[str, Any]:
