@@ -26,7 +26,8 @@ from app.services.remediation_models import (
     ValidationResult,
     ValidationStep,
 )
-from app.services.scanner_service import run_checkov, summarize_findings
+from app.services.scanner_service import run_checkov,summarize_findings
+from app.services.compliance_service import get_compliance_controls
 
 
 def verify_remediation(
@@ -124,9 +125,28 @@ def verify_remediation(
             f"Attack paths increased from {path_comparison.attack_paths_before} "
             f"to {path_comparison.attack_paths_after}"
         )
+          # -----------------------------------------------------------------------
+    # Step 5: Compliance Re-check
+    # -----------------------------------------------------------------------
+    compliance_passed, compliance_detail = _verify_compliance(
+        original_findings=original_findings,
+        new_findings=new_findings,
+        target_check_ids=candidate.target_check_ids,
+    )
+
+    steps.append(ValidationStep(
+        name="Compliance Control Re-check",
+        status="passed" if compliance_passed else "failed",
+        detail=compliance_detail,
+    ))
+
+    if not compliance_passed:
+        failure_reasons.append(
+            f"Compliance verification failed: {compliance_detail}"
+        )
 
     # -----------------------------------------------------------------------
-    # Step 5: Regression Check
+    # Step 6: Regression Check
     # -----------------------------------------------------------------------
     regression_passed = len(checkov_result.new_findings) == 0 and len(path_comparison.new_paths) == 0
     steps.append(ValidationStep(
@@ -260,4 +280,66 @@ def _compare_attack_paths(
         new_paths=[list(p) for p in introduced],
         blast_radius_before=original_graph.get("blast_radius_score", 0),
         blast_radius_after=new_graph.get("blast_radius_score", 0),
+    )
+  def _verify_compliance(
+    original_findings: dict[str, Any],
+    new_findings: dict[str, Any],
+    target_check_ids: list[str],
+) -> tuple[bool, str]:
+    """Verify that compliance controls associated with targeted fixes are resolved."""
+
+    original_failed = {
+        check.get("check_id", "")
+        for check in (original_findings.get("results") or {}).get("failed_checks", [])
+        if check.get("check_id")
+    }
+
+    new_failed = {
+        check.get("check_id", "")
+        for check in (new_findings.get("results") or {}).get("failed_checks", [])
+        if check.get("check_id")
+    }
+
+    # Only evaluate controls associated with the checks this remediation
+    # was actually intended to fix.
+    targeted_ids = set(target_check_ids)
+
+    original_controls: set[str] = set()
+    remaining_controls: set[str] = set()
+
+    for check_id in original_failed & targeted_ids:
+        for control in get_compliance_controls(check_id):
+            framework = control.get("framework", "")
+            control_id = control.get("control", "")
+            if framework and control_id:
+                original_controls.add(f"{framework}:{control_id}")
+
+    for check_id in new_failed & targeted_ids:
+        for control in get_compliance_controls(check_id):
+            framework = control.get("framework", "")
+            control_id = control.get("control", "")
+            if framework and control_id:
+                remaining_controls.add(f"{framework}:{control_id}")
+
+    resolved_controls = original_controls - remaining_controls
+
+    # If none of the targeted findings had a compliance mapping,
+    # don't fail the remediation just because there is no mapping.
+    if not original_controls:
+        return True, "No mapped compliance controls for targeted findings"
+
+    if remaining_controls:
+        remaining = ", ".join(sorted(remaining_controls))
+        resolved = ", ".join(sorted(resolved_controls)) or "None"
+
+        return (
+            False,
+            f"Resolved: {resolved}; Remaining: {remaining}",
+        )
+
+    resolved = ", ".join(sorted(resolved_controls))
+
+    return (
+        True,
+        f"All mapped compliance controls resolved: {resolved}",
     )
