@@ -1,5 +1,3 @@
-# SecAgent CI/CD Demo - Hackathon Release 2026-09-20
-
 # 🛡️ SecAgent CI/CD Demo Repository (`secagent-cicd-demo`)
 
 This repository demonstrates the **SecAgent Pre-Deployment Cloud Security Gate** in action with real GitHub Pull Requests.

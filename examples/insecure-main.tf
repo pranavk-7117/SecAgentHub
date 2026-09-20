@@ -1,4 +1,3 @@
-# Example Insecure Infrastructure - Hackathon Demo 2026-09-20
 provider "aws" {
   region = "us-east-1"
 }
