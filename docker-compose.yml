@@ -1,3 +1,4 @@
+# SecAgent Hub - Hackathon Release 2026-09-20
 services:
   postgres:
     image: postgres:16-alpine

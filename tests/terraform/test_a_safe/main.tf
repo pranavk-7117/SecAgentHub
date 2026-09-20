@@ -1,3 +1,4 @@
+# Test Case A: Safe Baseline Infrastructure (2026-09-20)
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
 }

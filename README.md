@@ -1,3 +1,5 @@
+> **Hackathon Release - September 20, 2026** | Verified Production Build
+
 ﻿# SecAgent Hub
 
 Pre-deployment cloud infrastructure security platform powered by semantic digital twin modeling, deterministic attack path analysis, and automated CI/CD security gate enforcement.
