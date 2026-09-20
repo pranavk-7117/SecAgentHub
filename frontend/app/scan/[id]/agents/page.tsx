@@ -65,6 +65,23 @@ export default function AgentPickerPage({ params }: { params: { id: string } }) 
     setMessage("Wallet session reset. Select your agents and click Run Selected Agents to try again.");
   }
 
+  async function runBypass() {
+    const targetIds = selected.length ? selected : agents.map((a) => a.id);
+    if (!targetIds.length) return;
+    setRunning(true);
+    setMessage("⚡ Running agents in Fast Demo Bypass mode...");
+    try {
+      for (const agentId of targetIds) {
+        await executeAgents(params.id, [agentId], `mock-demo-${agentId}-${Date.now()}`);
+      }
+      router.push(`/scan/${params.id}/results`);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Bypass agent execution failed");
+    } finally {
+      setRunning(false);
+    }
+  }
+
   return (
     <Shell>
       <div className="mb-8 flex flex-col gap-5 rounded-xl border border-white/[0.07] bg-white/[0.04] p-6 shadow-xl shadow-black/30 backdrop-blur md:flex-row md:items-center md:justify-between">
@@ -72,9 +89,19 @@ export default function AgentPickerPage({ params }: { params: { id: string } }) 
           <h1 className="text-3xl font-bold tracking-tight text-white">Choose security agents</h1>
           <p className="mt-2 text-slate-400">Select one or more specialist agents. Each agent gets its own x402 payment challenge.</p>
         </div>
-        <Button disabled={!selected.length || running} onClick={() => run()}>
-          {running ? "Waiting for Wallet..." : "Run Selected Agents"}
-        </Button>
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+          <button
+            type="button"
+            disabled={running}
+            onClick={runBypass}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-bold py-2.5 px-4 transition shadow-lg shadow-amber-500/10 disabled:opacity-50"
+          >
+            ⚡ Fast Demo (Bypass Payment)
+          </button>
+          <Button disabled={!selected.length || running} onClick={() => run()}>
+            {running ? "Waiting for Wallet..." : "Run Selected Agents"}
+          </Button>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {agents.map((agent) => {
