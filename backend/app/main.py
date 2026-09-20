@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import requests
 from typing import Annotated
 
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile, Depends
